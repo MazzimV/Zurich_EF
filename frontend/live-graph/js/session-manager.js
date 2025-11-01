@@ -11,6 +11,11 @@ class SessionManager {
     this.eventSource = null;
     this.isConnected = false;
     this.isActive = false;
+    this.isStopping = false;
+    this.gracePeriodTimer = null;
+
+    // Configuration
+    this.gracePeriodSeconds = options.gracePeriodSeconds || 12;  // Wait for final updates
 
     // Callbacks
     this.onUpdate = options.onUpdate || (() => {});
@@ -129,7 +134,7 @@ class SessionManager {
   }
 
   /**
-   * Stop the current session
+   * Stop the current session with grace period for final updates
    * @returns {Promise<Object>} Final session state
    */
   async stopSession() {
@@ -138,50 +143,97 @@ class SessionManager {
       return null;
     }
 
-    try {
-      this._updateStatus('stopping', 'Stopping session...');
-      console.log('⏹️  Stopping session:', this.sessionId);
-
-      // Close SSE connection first
-      if (this.eventSource) {
-        this.eventSource.close();
-        this.eventSource = null;
-        this.isConnected = false;
-        console.log('SSE connection closed');
-      }
-
-      // Call orchestrator to stop session
-      const response = await fetch(`${this.orchestratorUrl}/sessions/${this.sessionId}/stop`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({})
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to stop session: ${response.status} - ${errorText}`);
-      }
-
-      const finalState = await response.json();
-      console.log('✅ Session stopped:', finalState);
-
-      const sessionId = this.sessionId;
-      this.sessionId = null;
-      this.isActive = false;
-
-      this._updateStatus('stopped', 'Session stopped');
-      this.onDisconnect();
-
-      return finalState;
-
-    } catch (error) {
-      console.error('❌ Failed to stop session:', error);
-      this._updateStatus('error', `Error: ${error.message}`);
-      this.onError(error);
-      throw error;
+    // If already stopping, don't start another stop
+    if (this.isStopping) {
+      console.warn('Session is already stopping');
+      return null;
     }
+
+    this.isStopping = true;
+    const sessionId = this.sessionId;
+
+    console.log(`⏹️  Stopping session with ${this.gracePeriodSeconds}s grace period for final updates...`);
+
+    return new Promise((resolve, reject) => {
+      let countdown = this.gracePeriodSeconds;
+
+      // Update status with countdown
+      const updateCountdown = () => {
+        this._updateStatus('stopping', `Stopping... waiting for final updates (${countdown}s)`);
+      };
+
+      updateCountdown();
+
+      // Countdown timer
+      const countdownInterval = setInterval(() => {
+        countdown--;
+        if (countdown > 0) {
+          updateCountdown();
+        }
+      }, 1000);
+
+      // Grace period timer - wait before actually stopping
+      this.gracePeriodTimer = setTimeout(async () => {
+        clearInterval(countdownInterval);
+        console.log('⏰ Grace period ended, finalizing stop...');
+
+        try {
+          // Close SSE connection
+          if (this.eventSource) {
+            this.eventSource.close();
+            this.eventSource = null;
+            this.isConnected = false;
+            console.log('SSE connection closed');
+          }
+
+          // Call orchestrator to stop session
+          const response = await fetch(`${this.orchestratorUrl}/sessions/${sessionId}/stop`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({})
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to stop session: ${response.status} - ${errorText}`);
+          }
+
+          const finalState = await response.json();
+          console.log('✅ Session stopped:', finalState);
+
+          this.sessionId = null;
+          this.isActive = false;
+          this.isStopping = false;
+
+          this._updateStatus('stopped', 'Session stopped');
+          this.onDisconnect();
+
+          resolve(finalState);
+
+        } catch (error) {
+          console.error('❌ Failed to stop session:', error);
+          this.isStopping = false;
+          this._updateStatus('error', `Error: ${error.message}`);
+          this.onError(error);
+          reject(error);
+        }
+      }, this.gracePeriodSeconds * 1000);
+    });
+  }
+
+  /**
+   * Cancel the grace period and stop immediately
+   */
+  async forceStop() {
+    if (this.gracePeriodTimer) {
+      clearTimeout(this.gracePeriodTimer);
+      this.gracePeriodTimer = null;
+    }
+
+    this.isStopping = false;
+    return this.stopSession();
   }
 
   /**
@@ -244,12 +296,21 @@ class SessionManager {
    * Clean up resources
    */
   cleanup() {
+    // Clear grace period timer
+    if (this.gracePeriodTimer) {
+      clearTimeout(this.gracePeriodTimer);
+      this.gracePeriodTimer = null;
+    }
+
+    // Close SSE connection
     if (this.eventSource) {
       this.eventSource.close();
       this.eventSource = null;
     }
+
     this.isConnected = false;
     this.isActive = false;
+    this.isStopping = false;
     this.sessionId = null;
   }
 
@@ -260,7 +321,8 @@ class SessionManager {
     return {
       sessionId: this.sessionId,
       isConnected: this.isConnected,
-      isActive: this.isActive
+      isActive: this.isActive,
+      isStopping: this.isStopping
     };
   }
 }

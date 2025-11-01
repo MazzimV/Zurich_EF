@@ -156,16 +156,22 @@ python3 main.py
    - New transcript chunks appear in left panel
    - Graph evolves in real-time with smooth transitions
 6. **Stop session**: Click "Stop Session" when done
+   - **Grace period**: Waits 12 seconds for final updates to arrive
+   - Status shows countdown: "Stopping... waiting for final updates (Xs)"
+   - SSE stream stays open to receive pending transcriptions
+   - After grace period, session is finalized
    - Final state is saved to `./sessions/` directory
    - Summary shows total chunks, graph version, etc.
 
 ### Features
 
+- **Grace period on stop**: Waits 12 seconds for final transcriptions before closing
 - **Automatic reconnection**: If SSE connection drops, error is displayed
 - **Health monitoring**: Check service status before starting
 - **Session state**: View current session state at any time
 - **Error handling**: Clear error messages for connection issues
 - **Configurable URL**: Change orchestrator URL if needed
+- **Live countdown**: Shows remaining grace period time when stopping
 
 ## Graph Data Format
 

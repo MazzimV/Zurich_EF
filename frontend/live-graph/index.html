@@ -461,7 +461,9 @@
               updateLiveStatus('Disconnected', false);
             },
             onStatusChange: (state, message) => {
-              updateLiveStatus(message, state === 'active');
+              // Keep indicator active during 'stopping' state (grace period)
+              const isActive = state === 'active' || state === 'stopping';
+              updateLiveStatus(message, isActive);
             }
           });
         }
@@ -485,7 +487,7 @@
     }
 
     /**
-     * Stop live session
+     * Stop live session with grace period
      */
     async function stopLiveSession() {
       try {
@@ -494,7 +496,14 @@
           return;
         }
 
-        updateLiveStatus('Stopping session...', false);
+        // Disable stop button during grace period
+        document.getElementById('stop-live-session').disabled = true;
+        document.getElementById('get-session-state').disabled = true;
+
+        console.log('🛑 Stop requested - entering grace period for final updates...');
+
+        // Keep status indicator active during grace period (still receiving updates)
+        // The status text will be updated by SessionManager's onStatusChange callback
 
         const finalState = await sessionManager.stopSession();
         console.log('✅ Session stopped:', finalState);
@@ -509,12 +518,26 @@
 
         // Show final summary
         if (finalState && finalState.summary) {
-          alert(`Session stopped successfully!\n\nSummary:\n- Chunks: ${finalState.summary.chunk_count}\n- Graph version: ${finalState.summary.graph_version}\n- Transcript length: ${finalState.summary.transcript_length} chars\n- Graph updates: ${finalState.summary.total_graph_updates}`);
+          const message = `Session stopped successfully!\n\n` +
+            `Final Summary:\n` +
+            `─────────────────────────\n` +
+            `📝 Transcript chunks: ${finalState.summary.chunk_count}\n` +
+            `🔢 Graph version: ${finalState.summary.graph_version}\n` +
+            `📊 Graph updates: ${finalState.summary.total_graph_updates}\n` +
+            `📏 Transcript length: ${finalState.summary.transcript_length} characters\n` +
+            `\n💾 Saved to: ${finalState.saved_to || 'sessions directory'}`;
+
+          alert(message);
         }
 
       } catch (error) {
         console.error('Failed to stop session:', error);
         updateLiveStatus(`Error: ${error.message}`, false);
+
+        // Re-enable buttons on error
+        document.getElementById('start-live-session').disabled = false;
+        document.getElementById('stop-live-session').disabled = true;
+
         alert(`Failed to stop session:\n${error.message}`);
       }
     }
