@@ -52,7 +52,7 @@ See `../docs/graph-schema.md` for complete schema documentation.
 ### Prerequisites
 
 - Python 3.8+
-- LLM API key (Claude or OpenAI)
+- Anthropic API key (Claude)
 
 ### Installation
 
@@ -68,15 +68,10 @@ Create a `.env` file:
 ```env
 # Choose your LLM provider
 
-# Option 1: Anthropic Claude (Recommended for quality)
+# Anthropic Claude
 ANTHROPIC_API_KEY=your-claude-api-key
-LLM_PROVIDER=anthropic
-LLM_MODEL=claude-3-haiku-20240307  # Fast and cheap
-
-# Option 2: OpenAI
-# OPENAI_API_KEY=your-openai-key
-# LLM_PROVIDER=openai
-# LLM_MODEL=gpt-4o-mini  # Fast and cheap
+LLM_MODEL=claude-3-5-haiku-20241022  # Fast and cheap (default)
+# LLM_MODEL=claude-3-5-sonnet-20241022  # Better quality, slower
 
 # Server config
 PORT=8002
@@ -322,7 +317,7 @@ if __name__ == '__main__':
 
 ### Speed Optimization
 
-1. **Use fast models**: Claude Haiku or GPT-4o-mini
+1. **Use fast models**: Claude 3.5 Haiku (default)
 2. **Limit context**: Only send recent transcript (last 500 words)
 3. **Compress previous graph**: Summarize old nodes
 4. **Streaming**: Use LLM streaming API for faster perceived response
@@ -428,7 +423,7 @@ for text in test_cases:
 - **Solution**: Add post-processing to merge similar nodes
 
 **Issue**: Response is too slow (>3 seconds)
-- **Solution**: Use Claude Haiku or GPT-4o-mini
+- **Solution**: Use Claude 3.5 Haiku (default model)
 - **Solution**: Reduce previous_graph size
 
 **Issue**: Invalid JSON output
@@ -443,16 +438,14 @@ for text in test_cases:
 - **Solution**: Improve ID stability instructions in prompt
 - **Solution**: Add deterministic ID generation based on content
 
-## LLM Provider Comparison
+## Claude Model Options
 
-| Provider | Model | Speed | Cost (per call) | Quality |
-|----------|-------|-------|-----------------|---------|
-| Anthropic | Claude Haiku | Fast (~1s) | ~$0.001 | Excellent |
-| Anthropic | Claude Sonnet | Medium (~2s) | ~$0.005 | Excellent |
-| OpenAI | GPT-4o-mini | Fast (~1s) | ~$0.001 | Very Good |
-| OpenAI | GPT-4o | Medium (~2s) | ~$0.01 | Excellent |
+| Model | Speed | Cost (per call) | Quality |
+|-------|-------|-----------------|---------|
+| Claude 3.5 Haiku | Fast (~1s) | ~$0.001 | Excellent |
+| Claude 3.5 Sonnet | Medium (~2s) | ~$0.005 | Excellent |
 
-**Recommendation for Hackathon**: Claude Haiku (fast, cheap, great quality)
+**Recommendation**: Claude 3.5 Haiku (default, fast, cheap, great quality)
 
 ## Next Steps
 
@@ -467,7 +460,6 @@ for text in test_cases:
 ## Resources
 
 - [Anthropic Claude API Docs](https://docs.anthropic.com/claude/reference/getting-started-with-the-api)
-- [OpenAI API Docs](https://platform.openai.com/docs/api-reference)
 - [JSON Schema Validation](https://json-schema.org/)
 - Graph schema: `../docs/graph-schema.md`
 

@@ -127,56 +127,31 @@ class FeatureExtractor:
     """
     
     def __init__(self, 
-                 llm_provider: str = "anthropic",
-                 llm_model: str = "claude-3-haiku-20240307",
-                 anthropic_api_key: Optional[str] = None,
-                 openai_api_key: Optional[str] = None):
+                 llm_model: str = "claude-3-5-haiku-20241022",
+                 anthropic_api_key: Optional[str] = None):
         """
         Initialize the feature extractor.
         
         Args:
-            llm_provider: "anthropic" or "openai"
-            llm_model: Model name (e.g., "claude-3-haiku-20240307" or "gpt-4o-mini")
+            llm_model: Claude model name (default: "claude-3-5-haiku-20241022")
             anthropic_api_key: Anthropic API key (or use ANTHROPIC_API_KEY env var)
-            openai_api_key: OpenAI API key (or use OPENAI_API_KEY env var)
         """
-        self.llm_provider = llm_provider.lower()
         self.llm_model = llm_model
         
-        # Initialize LLM client
-        if self.llm_provider == "anthropic":
-            try:
-                from anthropic import Anthropic
-                api_key = anthropic_api_key or os.getenv('ANTHROPIC_API_KEY')
-                if not api_key:
-                    raise ValueError(
-                        "ANTHROPIC_API_KEY not found. "
-                        "Set it as environment variable or pass anthropic_api_key parameter."
-                    )
-                self.client = Anthropic(api_key=api_key)
-                self._call_llm = self._call_anthropic
-            except ImportError:
-                raise ImportError("anthropic package not installed. Install with: pip install anthropic")
-            except Exception as e:
-                raise ValueError(f"Failed to initialize Anthropic client: {e}")
-        
-        elif self.llm_provider == "openai":
-            try:
-                from openai import OpenAI
-                api_key = openai_api_key or os.getenv('OPENAI_API_KEY')
-                if not api_key:
-                    raise ValueError(
-                        "OPENAI_API_KEY not found. "
-                        "Set it as environment variable or pass openai_api_key parameter."
-                    )
-                self.client = OpenAI(api_key=api_key)
-                self._call_llm = self._call_openai
-            except ImportError:
-                raise ImportError("openai package not installed. Install with: pip install openai")
-            except Exception as e:
-                raise ValueError(f"Failed to initialize OpenAI client: {e}")
-        else:
-            raise ValueError(f"Unknown LLM provider: {llm_provider}. Use 'anthropic' or 'openai'")
+        # Initialize Anthropic client
+        try:
+            from anthropic import Anthropic
+            api_key = anthropic_api_key or os.getenv('ANTHROPIC_API_KEY')
+            if not api_key:
+                raise ValueError(
+                    "ANTHROPIC_API_KEY not found. "
+                    "Set it as environment variable or pass anthropic_api_key parameter."
+                )
+            self.client = Anthropic(api_key=api_key)
+        except ImportError:
+            raise ImportError("anthropic package not installed. Install with: pip install anthropic")
+        except Exception as e:
+            raise ValueError(f"Failed to initialize Anthropic client: {e}")
     
     def _create_extraction_prompt(self, text: str) -> str:
         """Create prompt for LLM to extract features"""
@@ -250,7 +225,7 @@ Guidelines:
 Return ONLY the JSON object, no markdown, no explanations."""
         return prompt
     
-    def _call_anthropic(self, prompt: str) -> str:
+    def _call_llm(self, prompt: str) -> str:
         """Call Anthropic Claude API"""
         message = self.client.messages.create(
             model=self.llm_model,
@@ -261,18 +236,6 @@ Return ONLY the JSON object, no markdown, no explanations."""
             }]
         )
         return message.content[0].text
-    
-    def _call_openai(self, prompt: str) -> str:
-        """Call OpenAI API"""
-        response = self.client.chat.completions.create(
-            model=self.llm_model,
-            max_tokens=4000,
-            messages=[{
-                "role": "user",
-                "content": prompt
-            }]
-        )
-        return response.choices[0].message.content
     
     def extract(self, text: str, metadata: Optional[Dict] = None) -> ExtractedFeatures:
         """
@@ -303,7 +266,7 @@ Return ONLY the JSON object, no markdown, no explanations."""
         try:
             response_text = self._call_llm(prompt)
         except Exception as e:
-            raise RuntimeError(f"Failed to call LLM for feature extraction: {e}")
+            raise RuntimeError(f"Failed to call Claude API for feature extraction: {e}")
         
         # Extract JSON from response
         json_text = _extract_json_from_response(response_text)
@@ -375,7 +338,6 @@ Return ONLY the JSON object, no markdown, no explanations."""
             'word_count': len(text.split()),
             'sentence_count': len(sentences),
             'extraction_timestamp': datetime.utcnow().isoformat() + 'Z',
-            'llm_provider': self.llm_provider,
             'llm_model': self.llm_model,
             **(metadata or {})
         }
@@ -393,22 +355,20 @@ Return ONLY the JSON object, no markdown, no explanations."""
 
 
 def extract_features(text: str, 
-                    llm_provider: str = "anthropic",
-                    llm_model: str = "claude-3-haiku-20240307",
+                    llm_model: str = "claude-3-5-haiku-20241022",
                     metadata: Optional[Dict] = None) -> Dict:
     """
-    Convenience function to extract features from text using LLM.
+    Convenience function to extract features from text using Claude.
     
     Args:
         text: Input transcript text
-        llm_provider: "anthropic" or "openai"
-        llm_model: Model name
+        llm_model: Claude model name
         metadata: Optional metadata dictionary
         
     Returns:
         Dictionary representation of extracted features
     """
-    extractor = FeatureExtractor(llm_provider=llm_provider, llm_model=llm_model)
+    extractor = FeatureExtractor(llm_model=llm_model)
     features = extractor.extract(text, metadata)
     return features.to_dict()
 

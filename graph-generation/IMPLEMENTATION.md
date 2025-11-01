@@ -12,8 +12,6 @@ pip install -r requirements.txt
 
 ```bash
 export ANTHROPIC_API_KEY=your-key-here
-# or
-export OPENAI_API_KEY=your-key-here
 ```
 
 ### 3. Basic Usage
@@ -22,7 +20,7 @@ export OPENAI_API_KEY=your-key-here
 from feature_extractor import FeatureExtractor
 
 # Initialize (uses ANTHROPIC_API_KEY from environment by default)
-extractor = FeatureExtractor(llm_provider="anthropic")
+extractor = FeatureExtractor()
 
 # Extract features
 features = extractor.extract("""
@@ -38,21 +36,19 @@ print(f"Actions: {len(features.actions)}")
 
 ## Configuration
 
-### LLM Provider Options
+### Claude Model Options
 
-**Anthropic (default)**:
+**Default (fast, cheap)**:
 ```python
 extractor = FeatureExtractor(
-    llm_provider="anthropic",
-    llm_model="claude-3-haiku-20240307"  # Fast, cheap (recommended)
+    llm_model="claude-3-5-haiku-20241022"  # Default - fast and cheap
 )
 ```
 
-**OpenAI**:
+**Higher quality**:
 ```python
 extractor = FeatureExtractor(
-    llm_provider="openai",
-    llm_model="gpt-4o-mini"  # Fast, cheap
+    llm_model="claude-3-5-sonnet-20241022"  # Better quality, slower
 )
 ```
 
@@ -108,11 +104,11 @@ python feature_extractor.py
 
 **Error**: `Failed to parse LLM response as JSON`
 - Check API key and network connection
-- Verify LLM response format
+- Verify Claude response format
 
 ## Performance
 
-- **Speed**: ~1-2 seconds per extraction (with Haiku/GPT-4o-mini)
+- **Speed**: ~1-2 seconds per extraction (with Claude 3.5 Haiku)
 - **Cost**: ~$0.001-0.002 per typical transcript (200 words)
 
 ## Integration

@@ -1,5 +1,5 @@
 """
-Test script for feature extraction module (LLM-based)
+Test script for feature extraction module (Claude-based)
 """
 
 import json
@@ -13,14 +13,14 @@ load_dotenv()
 def test_basic_extraction():
     """Test basic feature extraction"""
     print("=" * 60)
-    print("Testing Basic Feature Extraction (LLM-based)")
+    print("Testing Basic Feature Extraction (Claude-based)")
     print("=" * 60)
     
     # Check for API key
-    api_key = os.getenv('ANTHROPIC_API_KEY') or os.getenv('OPENAI_API_KEY')
+    api_key = os.getenv('ANTHROPIC_API_KEY')
     if not api_key:
         print("⚠ API key not found!")
-        print("   Set ANTHROPIC_API_KEY or OPENAI_API_KEY in .env file or environment variable.")
+        print("   Set ANTHROPIC_API_KEY in .env file or environment variable.")
         return None
     
     test_text = """
@@ -31,17 +31,13 @@ def test_basic_extraction():
     We decided to go with a modern design system. Let's schedule a meeting with the design team next week.
     """
     
-    # Use Anthropic if available, otherwise OpenAI
-    llm_provider = "anthropic" if os.getenv('ANTHROPIC_API_KEY') else "openai"
-    
-    extractor = FeatureExtractor(llm_provider=llm_provider)
+    extractor = FeatureExtractor()
     features = extractor.extract(test_text, metadata={'session_id': 'test-123'})
     
     print(f"\nText length: {len(test_text)} characters")
     print(f"Word count: {features.metadata['word_count']}")
     print(f"Sentence count: {features.metadata['sentence_count']}")
-    print(f"LLM Provider: {features.metadata.get('llm_provider', 'unknown')}")
-    print(f"LLM Model: {features.metadata.get('llm_model', 'unknown')}")
+    print(f"Claude Model: {features.metadata.get('llm_model', 'unknown')}")
     
     print(f"\n{'='*60}")
     print(f"ENTITIES ({len(features.entities)})")
@@ -90,7 +86,7 @@ def test_with_sample_transcript():
     print("=" * 60)
     
     # Check for API key
-    api_key = os.getenv('ANTHROPIC_API_KEY') or os.getenv('OPENAI_API_KEY')
+    api_key = os.getenv('ANTHROPIC_API_KEY')
     if not api_key:
         print("⚠ API key not found! Skipping this test.")
         return None
@@ -102,10 +98,7 @@ def test_with_sample_transcript():
         
         text = transcript_data['text']
         
-        # Use Anthropic if available, otherwise OpenAI
-        llm_provider = "anthropic" if os.getenv('ANTHROPIC_API_KEY') else "openai"
-        
-        extractor = FeatureExtractor(llm_provider=llm_provider)
+        extractor = FeatureExtractor()
         features = extractor.extract(
             text, 
             metadata={
@@ -145,47 +138,18 @@ def test_empty_text():
     print("=" * 60)
     
     # Check for API key
-    api_key = os.getenv('ANTHROPIC_API_KEY') or os.getenv('OPENAI_API_KEY')
+    api_key = os.getenv('ANTHROPIC_API_KEY')
     if not api_key:
         print("⚠ API key not found! Skipping this test.")
         return None
     
-    llm_provider = "anthropic" if os.getenv('ANTHROPIC_API_KEY') else "openai"
-    extractor = FeatureExtractor(llm_provider=llm_provider)
+    extractor = FeatureExtractor()
     features = extractor.extract("")
     
     assert len(features.entities) == 0
     assert len(features.concepts) == 0
     assert len(features.questions) == 0
     print("✓ Empty text handled correctly")
-
-
-def test_openai_provider():
-    """Test with OpenAI provider if key is available"""
-    print("\n\n")
-    print("=" * 60)
-    print("Testing OpenAI Provider")
-    print("=" * 60)
-    
-    openai_key = os.getenv('OPENAI_API_KEY')
-    if not openai_key:
-        print("⚠ OPENAI_API_KEY not found. Skipping OpenAI test.")
-        return None
-    
-    test_text = "We should use React Native for the mobile app. Let's schedule a meeting next week."
-    
-    try:
-        extractor = FeatureExtractor(llm_provider="openai", llm_model="gpt-4o-mini")
-        features = extractor.extract(test_text)
-        
-        print(f"\n✓ OpenAI extraction successful!")
-        print(f"  Found {len(features.concepts)} concepts, {len(features.entities)} entities")
-        print(f"  Found {len(features.actions)} actions")
-        
-        return features
-    except Exception as e:
-        print(f"✗ OpenAI test failed: {e}")
-        return None
 
 
 if __name__ == "__main__":
@@ -198,9 +162,6 @@ if __name__ == "__main__":
         
         # Edge case test
         test_empty_text()
-        
-        # Test OpenAI provider
-        test_openai_provider()
         
         print("\n\n" + "=" * 60)
         print("ALL TESTS COMPLETED ✓")
