@@ -117,11 +117,9 @@ def expand_node():
     Returns:
     {
         "session_id": "session-123",
-        "version": 3,
-        "timestamp": "ISO-8601",
+        "version": 3
         "nodes": [...],  // includes 4 new subtopic nodes
         "edges": [...],  // includes 4 new edges to subtopics
-        "metadata": {...}
     }
     """
     try:
@@ -163,7 +161,7 @@ if __name__ == '__main__':
     
     print(f"Starting Graph Generation API server on port {port}")
     print(f"Debug mode: {debug}")
-    print(f"Environment: {os.getenv('LLM_MODEL', 'claude-sonnet-4-5-20250929')}")
+    print(f"Environment: {os.getenv('LLM_MODEL', 'claude-haiku-4-5-20251001')}")
     
     app.run(host='0.0.0.0', port=port, debug=debug)
 

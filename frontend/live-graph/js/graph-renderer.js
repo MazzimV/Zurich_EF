@@ -252,7 +252,7 @@ class GraphRenderer {
 
     // Add title for hover tooltip
     nodeEnter.append('title')
-      .text(d => `${d.label}\nType: ${d.type}\nImportance: ${d.importance?.toFixed(2) || 'N/A'}`);
+      .text(d => `${d.label}\nImportance: ${d.importance?.toFixed(2) || 'N/A'}`);
 
     // Transition in new nodes
     nodeEnter
@@ -281,7 +281,7 @@ class GraphRenderer {
       .text(d => d.label);
 
     this.nodeSelection.select('title')
-      .text(d => `${d.label}\nType: ${d.type}\nImportance: ${d.importance?.toFixed(2) || 'N/A'}${this.isPaused ? '\n(Click to expand)' : ''}`);
+      .text(d => `${d.label}\nImportance: ${d.importance?.toFixed(2) || 'N/A'}${this.isPaused ? '\n(Click to expand)' : ''}`);
   }
 
   /**
@@ -373,7 +373,7 @@ class GraphRenderer {
         .style('cursor', d => this.isPaused ? 'pointer' : 'default');
       
       this.nodeSelection.select('title')
-        .text(d => `${d.label}\nType: ${d.type}\nImportance: ${d.importance?.toFixed(2) || 'N/A'}${this.isPaused ? '\n(Click to expand)' : ''}`);
+        .text(d => `${d.label}\nImportance: ${d.importance?.toFixed(2) || 'N/A'}${this.isPaused ? '\n(Click to expand)' : ''}`);
     }
   }
 
