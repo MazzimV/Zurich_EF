@@ -26,7 +26,7 @@ load_dotenv()
 app = Flask(__name__)
 
 # Configure CORS
-cors_origins = os.getenv('CORS_ORIGINS', 'http://localhost:3000').split(',')
+cors_origins = os.getenv('CORS_ORIGINS', 'http://localhost:3005').split(',')
 CORS(app, origins=cors_origins)
 
 # Get service instances
@@ -395,7 +395,7 @@ def internal_error(error):
 
 def main():
     """Run the Flask application."""
-    port = int(os.getenv('PORT', 8001))
+    port = int(os.getenv('PORT', 8005))
     debug = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
 
     app.logger.info("=" * 60)

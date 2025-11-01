@@ -4,6 +4,12 @@ Test script for feature extraction module (Claude-based)
 
 import json
 import os
+import sys
+from pathlib import Path
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent))
+
 from feature_extractor import FeatureExtractor, extract_features
 from dotenv import load_dotenv
 
@@ -93,7 +99,7 @@ def test_with_sample_transcript():
     
     # Load sample transcript
     try:
-        with open('../shared/examples/sample-transcript.json', 'r') as f:
+        with open('../../shared/examples/sample-transcript.json', 'r') as f:
             transcript_data = json.load(f)
         
         text = transcript_data['text']
