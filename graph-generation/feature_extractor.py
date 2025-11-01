@@ -1,41 +1,27 @@
 """
 Feature Extraction Module
 
-This module extracts structured features from transcript text before semantic clustering/graph generation.
-It performs NLP analysis to identify entities, key phrases, concepts, questions, actions, and decisions.
+This module extracts structured features from transcript text using LLM before semantic clustering/graph generation.
+It uses an LLM to identify entities, key phrases, concepts, questions, actions, and decisions.
 """
 
 import re
 import os
 import json
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional
 from dataclasses import dataclass, asdict
 from datetime import datetime
-import spacy
-from rake_nltk import Rake
-import nltk
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
-
-# Download required NLTK data (run once)
-try:
-    nltk.data.find('tokenizers/punkt')
-except LookupError:
-    nltk.download('punkt', quiet=True)
-
-try:
-    nltk.data.find('stopwords')
-except LookupError:
-    nltk.download('stopwords', quiet=True)
 
 
 @dataclass
 class ExtractedEntity:
     """Represents a named entity extracted from text"""
     text: str
-    label: str  # PERSON, ORG, PRODUCT, GPE, etc.
+    label: str  # PERSON, ORGANIZATION, PRODUCT, LOCATION, etc.
     start_char: int
     end_char: int
     confidence: float = 0.8
@@ -45,16 +31,16 @@ class ExtractedEntity:
 class ExtractedConcept:
     """Represents a key concept or phrase"""
     text: str
-    importance_score: float  # 0-1 based on TF-IDF, position, frequency
+    importance_score: float  # 0-1
     frequency: int = 1
-    positions: List[int] = None  # Character positions where mentioned
+    positions: List[int] = None
 
 
 @dataclass
 class ExtractedQuestion:
     """Represents a question identified in the text"""
     text: str
-    question_type: str  # "what", "how", "why", "when", "where", "who", "yes_no"
+    question_type: str  # "what", "how", "why", "when", "where", "who", "which", "yes_no"
     start_char: int
     end_char: int
 
@@ -105,74 +91,192 @@ class ExtractedFeatures:
         }
 
 
+def _extract_json_from_response(response_text: str) -> str:
+    """Extract JSON from LLM response, handling markdown code blocks"""
+    # Try to find JSON in markdown code blocks
+    json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', response_text, re.DOTALL)
+    if json_match:
+        return json_match.group(1)
+    
+    # Try to find JSON object directly
+    json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+    if json_match:
+        return json_match.group(0)
+    
+    # Return as-is if no pattern matches
+    return response_text.strip()
+
+
+def _split_into_sentences(text: str) -> List[str]:
+    """Simple sentence splitting using regex"""
+    # Split on sentence-ending punctuation
+    sentences = re.split(r'[.!?]+', text)
+    # Clean up and filter empty strings
+    sentences = [s.strip() for s in sentences if s.strip()]
+    return sentences
+
+
 class FeatureExtractor:
     """
-    Extracts structured features from transcript text.
+    Extracts structured features from transcript text using LLM.
     
     This is step 1 of the graph generation pipeline:
-    1. Feature Extraction (this module) - Extract entities, concepts, patterns
+    1. Feature Extraction (this module) - Extract entities, concepts, patterns using LLM
     2. Semantic Clustering - Group related features
     3. Graph Generation - Create graph structure from clustered features
     """
     
-    def __init__(self, spacy_model: str = "en_core_web_sm", 
-                 use_llm_filter: bool = True,
-                 anthropic_api_key: Optional[str] = None):
+    def __init__(self, 
+                 llm_provider: str = "anthropic",
+                 llm_model: str = "claude-3-haiku-20240307",
+                 anthropic_api_key: Optional[str] = None,
+                 openai_api_key: Optional[str] = None):
         """
         Initialize the feature extractor.
         
         Args:
-            spacy_model: Name of spaCy model to load. Defaults to "en_core_web_sm"
-                       For better performance, use "en_core_web_md" or "en_core_web_lg"
-            use_llm_filter: Whether to use Anthropic LLM to filter key phrases for relevance
-            anthropic_api_key: Anthropic API key (if not provided, reads from ANTHROPIC_API_KEY env var)
+            llm_provider: "anthropic" or "openai"
+            llm_model: Model name (e.g., "claude-3-haiku-20240307" or "gpt-4o-mini")
+            anthropic_api_key: Anthropic API key (or use ANTHROPIC_API_KEY env var)
+            openai_api_key: OpenAI API key (or use OPENAI_API_KEY env var)
         """
-        try:
-            self.nlp = spacy.load(spacy_model)
-        except OSError:
-            raise ValueError(
-                f"spaCy model '{spacy_model}' not found. "
-                f"Install it with: python -m spacy download {spacy_model}"
-            )
+        self.llm_provider = llm_provider.lower()
+        self.llm_model = llm_model
         
-        self.rake = Rake()
-        self.use_llm_filter = use_llm_filter
-        
-        # Initialize Anthropic client if LLM filtering is enabled
-        self.anthropic_client = None
-        if use_llm_filter:
+        # Initialize LLM client
+        if self.llm_provider == "anthropic":
             try:
                 from anthropic import Anthropic
                 api_key = anthropic_api_key or os.getenv('ANTHROPIC_API_KEY')
-                if api_key:
-                    self.anthropic_client = Anthropic(api_key=api_key)
-                else:
-                    print("Warning: ANTHROPIC_API_KEY not found. LLM filtering disabled.")
-                    self.use_llm_filter = False
+                if not api_key:
+                    raise ValueError(
+                        "ANTHROPIC_API_KEY not found. "
+                        "Set it as environment variable or pass anthropic_api_key parameter."
+                    )
+                self.client = Anthropic(api_key=api_key)
+                self._call_llm = self._call_anthropic
             except ImportError:
-                print("Warning: anthropic package not installed. LLM filtering disabled.")
-                self.use_llm_filter = False
+                raise ImportError("anthropic package not installed. Install with: pip install anthropic")
+            except Exception as e:
+                raise ValueError(f"Failed to initialize Anthropic client: {e}")
         
-        # Patterns for detecting actions
-        self.action_patterns = [
-            r"\b(?:we|I|let's|we should|we need to|we must|we have to)\s+(?:do|make|create|build|implement|add|fix|update|change|test|review|schedule|plan)",
-            r"\b(?:need to|must|should|have to|going to|plan to)\s+\w+",
-            r"\baction items?|next steps?|todo|task|tasks",
-        ]
-        
-        # Patterns for detecting decisions
-        self.decision_patterns = [
-            r"\b(?:we decided|we chose|we'll use|we're going with|let's go with|we'll go with)",
-            r"\b(?:decision|decided|chose|selected|picked|settled on)",
-            r"\b(?:will use|will go with|will choose)",
-        ]
-        
-        # Question words
-        self.question_words = ["what", "how", "why", "when", "where", "who", "which"]
-        
+        elif self.llm_provider == "openai":
+            try:
+                from openai import OpenAI
+                api_key = openai_api_key or os.getenv('OPENAI_API_KEY')
+                if not api_key:
+                    raise ValueError(
+                        "OPENAI_API_KEY not found. "
+                        "Set it as environment variable or pass openai_api_key parameter."
+                    )
+                self.client = OpenAI(api_key=api_key)
+                self._call_llm = self._call_openai
+            except ImportError:
+                raise ImportError("openai package not installed. Install with: pip install openai")
+            except Exception as e:
+                raise ValueError(f"Failed to initialize OpenAI client: {e}")
+        else:
+            raise ValueError(f"Unknown LLM provider: {llm_provider}. Use 'anthropic' or 'openai'")
+    
+    def _create_extraction_prompt(self, text: str) -> str:
+        """Create prompt for LLM to extract features"""
+        prompt = f"""Analyze the following transcript text and extract structured features. Return ONLY valid JSON, no explanations.
+
+Text to analyze:
+---
+{text}
+---
+
+Extract the following features and return as JSON:
+
+{{
+  "entities": [
+    {{
+      "text": "entity text",
+      "label": "PERSON|ORGANIZATION|PRODUCT|LOCATION|TECHNOLOGY|EVENT|OTHER",
+      "start_char": 0,
+      "end_char": 10,
+      "confidence": 0.9
+    }}
+  ],
+  "concepts": [
+    {{
+      "text": "key concept or phrase",
+      "importance_score": 0.8,
+      "frequency": 1,
+      "positions": [0]
+    }}
+  ],
+  "questions": [
+    {{
+      "text": "question text",
+      "question_type": "what|how|why|when|where|who|which|yes_no",
+      "start_char": 0,
+      "end_char": 20
+    }}
+  ],
+  "actions": [
+    {{
+      "text": "action item sentence",
+      "action_verb": "main verb",
+      "confidence": 0.8,
+      "start_char": 0,
+      "end_char": 30
+    }}
+  ],
+  "decisions": [
+    {{
+      "text": "decision statement",
+      "decision_type": "choice|commitment|plan",
+      "confidence": 0.8,
+      "start_char": 0,
+      "end_char": 25
+    }}
+  ],
+  "key_phrases": ["phrase1", "phrase2", "phrase3"]
+}}
+
+Guidelines:
+- Extract named entities: people, organizations, products, technologies, locations
+- Extract important concepts and topics (noun phrases, key terms)
+- Identify all questions (sentences ending with "?" or starting with question words)
+- Identify action items (tasks, to-dos, things to do)
+- Identify decisions (choices made, commitments, plans)
+- For key_phrases, extract 5-15 most important phrases
+- Use character positions (start_char, end_char) to locate text in the original
+- Set importance_score for concepts (0.0-1.0), higher for more important/repeated concepts
+- Set confidence scores (0.0-1.0) for entities, actions, decisions
+
+Return ONLY the JSON object, no markdown, no explanations."""
+        return prompt
+    
+    def _call_anthropic(self, prompt: str) -> str:
+        """Call Anthropic Claude API"""
+        message = self.client.messages.create(
+            model=self.llm_model,
+            max_tokens=4000,
+            messages=[{
+                "role": "user",
+                "content": prompt
+            }]
+        )
+        return message.content[0].text
+    
+    def _call_openai(self, prompt: str) -> str:
+        """Call OpenAI API"""
+        response = self.client.chat.completions.create(
+            model=self.llm_model,
+            max_tokens=4000,
+            messages=[{
+                "role": "user",
+                "content": prompt
+            }]
+        )
+        return response.choices[0].message.content
+    
     def extract(self, text: str, metadata: Optional[Dict] = None) -> ExtractedFeatures:
         """
-        Extract all features from the given text.
+        Extract all features from the given text using LLM.
         
         Args:
             text: Input transcript text
@@ -193,23 +297,86 @@ class FeatureExtractor:
                 metadata=metadata or {}
             )
         
-        # Process with spaCy
-        doc = self.nlp(text)
+        # Create prompt and call LLM
+        prompt = self._create_extraction_prompt(text)
         
-        # Extract different feature types
-        entities = self._extract_entities(doc)
-        concepts = self._extract_concepts(doc, text)
-        questions = self._extract_questions(doc, text)
-        actions = self._extract_actions(doc, text)
-        decisions = self._extract_decisions(doc, text)
-        key_phrases = self._extract_key_phrases(text)
-        sentences = [sent.text.strip() for sent in doc.sents if sent.text.strip()]
+        try:
+            response_text = self._call_llm(prompt)
+        except Exception as e:
+            raise RuntimeError(f"Failed to call LLM for feature extraction: {e}")
+        
+        # Extract JSON from response
+        json_text = _extract_json_from_response(response_text)
+        
+        try:
+            extracted_data = json.loads(json_text)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Failed to parse LLM response as JSON: {e}\nResponse was: {response_text[:500]}")
+        
+        # Parse extracted data into structured objects
+        entities = [
+            ExtractedEntity(
+                text=e['text'],
+                label=e.get('label', 'OTHER'),
+                start_char=e.get('start_char', 0),
+                end_char=e.get('end_char', len(e['text'])),
+                confidence=e.get('confidence', 0.8)
+            )
+            for e in extracted_data.get('entities', [])
+        ]
+        
+        concepts = [
+            ExtractedConcept(
+                text=c['text'],
+                importance_score=c.get('importance_score', 0.5),
+                frequency=c.get('frequency', 1),
+                positions=c.get('positions', [0])
+            )
+            for c in extracted_data.get('concepts', [])
+        ]
+        
+        questions = [
+            ExtractedQuestion(
+                text=q['text'],
+                question_type=q.get('question_type', 'yes_no'),
+                start_char=q.get('start_char', 0),
+                end_char=q.get('end_char', len(q['text']))
+            )
+            for q in extracted_data.get('questions', [])
+        ]
+        
+        actions = [
+            ExtractedAction(
+                text=a['text'],
+                action_verb=a.get('action_verb', 'act'),
+                confidence=a.get('confidence', 0.8),
+                start_char=a.get('start_char', 0),
+                end_char=a.get('end_char', len(a['text']))
+            )
+            for a in extracted_data.get('actions', [])
+        ]
+        
+        decisions = [
+            ExtractedDecision(
+                text=d['text'],
+                decision_type=d.get('decision_type', 'choice'),
+                confidence=d.get('confidence', 0.8),
+                start_char=d.get('start_char', 0),
+                end_char=d.get('end_char', len(d['text']))
+            )
+            for d in extracted_data.get('decisions', [])
+        ]
+        
+        key_phrases = extracted_data.get('key_phrases', [])
+        sentences = _split_into_sentences(text)
         
         extract_metadata = {
             'text_length': len(text),
-            'word_count': len(doc),
+            'word_count': len(text.split()),
             'sentence_count': len(sentences),
             'extraction_timestamp': datetime.utcnow().isoformat() + 'Z',
+            'llm_provider': self.llm_provider,
+            'llm_model': self.llm_model,
             **(metadata or {})
         }
         
@@ -223,311 +390,25 @@ class FeatureExtractor:
             sentences=sentences,
             metadata=extract_metadata
         )
-    
-    def _extract_entities(self, doc) -> List[ExtractedEntity]:
-        """Extract named entities (people, organizations, products, etc.)"""
-        entities = []
-        for ent in doc.ents:
-            # Map spaCy labels to our labels
-            label_mapping = {
-                'PERSON': 'PERSON',
-                'ORG': 'ORGANIZATION',
-                'GPE': 'LOCATION',
-                'PRODUCT': 'PRODUCT',
-                'EVENT': 'EVENT',
-                'WORK_OF_ART': 'WORK_OF_ART',
-                'LAW': 'LAW',
-                'LANGUAGE': 'LANGUAGE',
-            }
-            
-            if ent.label_ in label_mapping:
-                entities.append(ExtractedEntity(
-                    text=ent.text,
-                    label=label_mapping[ent.label_],
-                    start_char=ent.start_char,
-                    end_char=ent.end_char,
-                    confidence=0.9 if ent.label_ in ['PERSON', 'ORG'] else 0.8
-                ))
-        
-        return entities
-    
-    def _extract_concepts(self, doc, text: str) -> List[ExtractedConcept]:
-        """
-        Extract key concepts and phrases from the text.
-        Uses noun phrases and important terms.
-        """
-        concepts_dict: Dict[str, ExtractedConcept] = {}
-        
-        # Extract noun phrases
-        for chunk in doc.noun_chunks:
-            # Filter out common stop words and pronouns
-            if len(chunk.text.split()) > 1:  # Multi-word phrases only
-                normalized = chunk.text.lower().strip()
-                
-                # Skip if it's mostly stop words
-                if self._is_meaningful_phrase(normalized):
-                    if normalized not in concepts_dict:
-                        # Calculate initial importance based on position and length
-                        importance = self._calculate_concept_importance(chunk, text)
-                        concepts_dict[normalized] = ExtractedConcept(
-                            text=chunk.text,  # Keep original case
-                            importance_score=importance,
-                            frequency=1,
-                            positions=[chunk.start_char]
-                        )
-                    else:
-                        # Update existing concept
-                        concepts_dict[normalized].frequency += 1
-                        concepts_dict[normalized].positions.append(chunk.start_char)
-                        # Increase importance with frequency
-                        concepts_dict[normalized].importance_score = min(
-                            1.0,
-                            concepts_dict[normalized].importance_score + 0.1
-                        )
-        
-        # Also extract important single-word nouns (capitalized or important terms)
-        for token in doc:
-            if (token.pos_ == "NOUN" and 
-                token.is_alpha and 
-                not token.is_stop and
-                len(token.text) > 3):
-                
-                normalized = token.text.lower()
-                if normalized not in concepts_dict:
-                    importance = 0.3  # Lower importance for single words
-                    concepts_dict[normalized] = ExtractedConcept(
-                        text=token.text,
-                        importance_score=importance,
-                        frequency=1,
-                        positions=[token.idx]
-                    )
-        
-        # Convert to list and sort by importance
-        concepts = list(concepts_dict.values())
-        concepts.sort(key=lambda x: x.importance_score, reverse=True)
-        
-        return concepts[:30]  # Limit to top 30 concepts
-    
-    def _extract_questions(self, doc, text: str) -> List[ExtractedQuestion]:
-        """Extract questions from the text"""
-        questions = []
-        
-        for sent in doc.sents:
-            sent_text = sent.text.strip()
-            
-            # Check if sentence is a question
-            if sent_text.endswith('?') or any(sent_text.lower().startswith(qw) for qw in self.question_words):
-                # Determine question type
-                question_type = "yes_no"
-                for qw in self.question_words:
-                    if sent_text.lower().startswith(qw):
-                        question_type = qw
-                        break
-                
-                questions.append(ExtractedQuestion(
-                    text=sent_text,
-                    question_type=question_type,
-                    start_char=sent.start_char,
-                    end_char=sent.end_char
-                ))
-        
-        return questions
-    
-    def _extract_actions(self, doc, text: str) -> List[ExtractedAction]:
-        """Extract action items and tasks"""
-        actions = []
-        
-        for sent in doc.sents:
-            sent_text = sent.text.strip()
-            sent_lower = sent_text.lower()
-            
-            # Check against action patterns
-            for pattern in self.action_patterns:
-                if re.search(pattern, sent_lower, re.IGNORECASE):
-                    # Try to find the main action verb
-                    action_verb = self._find_action_verb(sent)
-                    
-                    actions.append(ExtractedAction(
-                        text=sent_text,
-                        action_verb=action_verb,
-                        confidence=0.8,
-                        start_char=sent.start_char,
-                        end_char=sent.end_char
-                    ))
-                    break  # Only add once per sentence
-        
-        return actions
-    
-    def _extract_decisions(self, doc, text: str) -> List[ExtractedDecision]:
-        """Extract decisions and commitments"""
-        decisions = []
-        
-        for sent in doc.sents:
-            sent_text = sent.text.strip()
-            sent_lower = sent_text.lower()
-            
-            # Check against decision patterns
-            for pattern in self.decision_patterns:
-                if re.search(pattern, sent_lower, re.IGNORECASE):
-                    # Determine decision type
-                    decision_type = "choice"
-                    if "decided" in sent_lower or "decision" in sent_lower:
-                        decision_type = "choice"
-                    elif "commit" in sent_lower or "going to" in sent_lower:
-                        decision_type = "commitment"
-                    elif "plan" in sent_lower:
-                        decision_type = "plan"
-                    
-                    decisions.append(ExtractedDecision(
-                        text=sent_text,
-                        decision_type=decision_type,
-                        confidence=0.8,
-                        start_char=sent.start_char,
-                        end_char=sent.end_char
-                    ))
-                    break
-        
-        return decisions
-    
-    def _extract_key_phrases(self, text: str) -> List[str]:
-        """
-        Extract key phrases using RAKE algorithm, optionally filtered by LLM for relevance.
-        
-        Args:
-            text: Input text to extract phrases from
-            
-        Returns:
-            List of relevant key phrases
-        """
-        self.rake.extract_keywords_from_text(text)
-        phrases = self.rake.get_ranked_phrases()[:15]  # Top 15 key phrases
-        
-        # Filter using LLM if enabled
-        if self.use_llm_filter and self.anthropic_client and phrases:
-            phrases = self._filter_key_phrases_with_llm(phrases, text)
-        
-        return phrases
-    
-    def _filter_key_phrases_with_llm(self, phrases: List[str], context_text: str) -> List[str]:
-        """
-        Use Anthropic LLM to filter key phrases and keep only relevant ones.
-        
-        Args:
-            phrases: List of extracted key phrases to filter
-            context_text: Original text context for better relevance judgment
-            
-        Returns:
-            Filtered list of relevant key phrases
-        """
-        if not phrases or not self.anthropic_client:
-            return phrases
-        
-        try:
-            # Build prompt for LLM to evaluate relevance
-            prompt = f"""You are analyzing key phrases extracted from a brainstorming discussion transcript.
-
-ORIGINAL TEXT:
-{context_text[:1000]}
-
-EXTRACTED KEY PHRASES:
-{json.dumps(phrases, indent=2)}
-
-Your task: Identify which key phrases are ACTUALLY RELEVANT and meaningful for understanding the discussion topics. 
-
-Filter out:
-- Generic words/phrases ("okay", "let", "think", "really need")
-- Incomplete phrases ("confusing right", "time users")
-- Common filler words
-- Phrases that don't convey substantive meaning
-
-Keep only:
-- Specific topics, concepts, or meaningful phrases
-- Technical terms, product names, features
-- Actionable items or decisions
-- Important entities or themes
-
-Return ONLY a JSON array of the relevant phrases, nothing else. Format: ["phrase1", "phrase2", ...]
-
-RELEVANT PHRASES:"""
-            
-            message = self.anthropic_client.messages.create(
-                model="claude-3-haiku-20240307",  # Fast and cheap model
-                max_tokens=500,
-                messages=[{
-                    "role": "user",
-                    "content": prompt
-                }]
-            )
-            
-            response_text = message.content[0].text.strip()
-            
-            # Extract JSON from response (handle markdown code blocks)
-            json_match = re.search(r'\[.*\]', response_text, re.DOTALL)
-            if json_match:
-                filtered_phrases = json.loads(json_match.group(0))
-                # Ensure all returned phrases were in original list
-                filtered_phrases = [p for p in filtered_phrases if p in phrases]
-                return filtered_phrases
-            else:
-                # Fallback: return original if parsing fails
-                print(f"Warning: Could not parse LLM response, using original phrases")
-                return phrases
-                
-        except Exception as e:
-            print(f"Warning: LLM filtering failed ({str(e)}), using original phrases")
-            return phrases
-    
-    def _is_meaningful_phrase(self, phrase: str) -> bool:
-        """Check if a phrase is meaningful (not just stop words)"""
-        stop_words = {'the', 'a', 'an', 'this', 'that', 'these', 'those', 'it', 'they', 'we', 'you'}
-        words = phrase.split()
-        meaningful_words = [w for w in words if w not in stop_words]
-        return len(meaningful_words) > 0
-    
-    def _calculate_concept_importance(self, chunk, text: str) -> float:
-        """
-        Calculate importance score for a concept based on:
-        - Position in text (earlier = more important)
-        - Length (longer phrases might be more specific)
-        - Sentence position
-        """
-        # Base importance
-        importance = 0.5
-        
-        # Position bonus (earlier in text = higher importance)
-        position_ratio = chunk.start_char / max(len(text), 1)
-        if position_ratio < 0.3:  # First 30% of text
-            importance += 0.2
-        elif position_ratio < 0.6:  # First 60%
-            importance += 0.1
-        
-        # Length bonus (longer phrases are often more specific)
-        word_count = len(chunk.text.split())
-        if word_count >= 3:
-            importance += 0.1
-        
-        return min(1.0, importance)
-    
-    def _find_action_verb(self, sent) -> str:
-        """Find the main action verb in a sentence"""
-        for token in sent:
-            if token.pos_ == "VERB" and not token.is_stop:
-                return token.lemma_  # Return base form
-        return "act"  # Default
 
 
-def extract_features(text: str, metadata: Optional[Dict] = None) -> Dict:
+def extract_features(text: str, 
+                    llm_provider: str = "anthropic",
+                    llm_model: str = "claude-3-haiku-20240307",
+                    metadata: Optional[Dict] = None) -> Dict:
     """
-    Convenience function to extract features from text.
+    Convenience function to extract features from text using LLM.
     
     Args:
         text: Input transcript text
+        llm_provider: "anthropic" or "openai"
+        llm_model: Model name
         metadata: Optional metadata dictionary
         
     Returns:
         Dictionary representation of extracted features
     """
-    extractor = FeatureExtractor()
+    extractor = FeatureExtractor(llm_provider=llm_provider, llm_model=llm_model)
     features = extractor.extract(text, metadata)
     return features.to_dict()
 
@@ -542,31 +423,36 @@ if __name__ == "__main__":
     We decided to go with a modern design system. Let's schedule a meeting with the design team next week.
     """
     
-    extractor = FeatureExtractor()
-    features = extractor.extract(test_text)
-    
-    print("=== Extracted Features ===\n")
-    print(f"Entities ({len(features.entities)}):")
-    for entity in features.entities:
-        print(f"  - {entity.text} ({entity.label})")
-    
-    print(f"\nConcepts ({len(features.concepts)}):")
-    for concept in features.concepts[:10]:
-        print(f"  - {concept.text} (importance: {concept.importance_score:.2f}, freq: {concept.frequency})")
-    
-    print(f"\nQuestions ({len(features.questions)}):")
-    for question in features.questions:
-        print(f"  - {question.text} ({question.question_type})")
-    
-    print(f"\nActions ({len(features.actions)}):")
-    for action in features.actions:
-        print(f"  - {action.text} (verb: {action.action_verb})")
-    
-    print(f"\nDecisions ({len(features.decisions)}):")
-    for decision in features.decisions:
-        print(f"  - {decision.text} (type: {decision.decision_type})")
-    
-    print(f"\nKey Phrases ({len(features.key_phrases)}):")
-    for phrase in features.key_phrases[:10]:
-        print(f"  - {phrase}")
-
+    try:
+        extractor = FeatureExtractor()
+        features = extractor.extract(test_text)
+        
+        print("=== Extracted Features ===\n")
+        print(f"Entities ({len(features.entities)}):")
+        for entity in features.entities:
+            print(f"  - {entity.text} ({entity.label}) confidence: {entity.confidence:.2f}")
+        
+        print(f"\nConcepts ({len(features.concepts)}):")
+        for concept in features.concepts[:10]:
+            print(f"  - {concept.text} (importance: {concept.importance_score:.2f}, freq: {concept.frequency})")
+        
+        print(f"\nQuestions ({len(features.questions)}):")
+        for question in features.questions:
+            print(f"  - {question.text} ({question.question_type})")
+        
+        print(f"\nActions ({len(features.actions)}):")
+        for action in features.actions:
+            print(f"  - {action.text} (verb: {action.action_verb})")
+        
+        print(f"\nDecisions ({len(features.decisions)}):")
+        for decision in features.decisions:
+            print(f"  - {decision.text} (type: {decision.decision_type})")
+        
+        print(f"\nKey Phrases ({len(features.key_phrases)}):")
+        for phrase in features.key_phrases[:10]:
+            print(f"  - {phrase}")
+            
+    except Exception as e:
+        print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()

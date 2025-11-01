@@ -1,5 +1,5 @@
 """
-Test script for feature extraction module
+Test script for feature extraction module (LLM-based)
 """
 
 import json
@@ -9,11 +9,19 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 def test_basic_extraction():
     """Test basic feature extraction"""
     print("=" * 60)
-    print("Testing Basic Feature Extraction")
+    print("Testing Basic Feature Extraction (LLM-based)")
     print("=" * 60)
+    
+    # Check for API key
+    api_key = os.getenv('ANTHROPIC_API_KEY') or os.getenv('OPENAI_API_KEY')
+    if not api_key:
+        print("⚠ API key not found!")
+        print("   Set ANTHROPIC_API_KEY or OPENAI_API_KEY in .env file or environment variable.")
+        return None
     
     test_text = """
     Okay, so let's talk about the mobile app redesign. I think we really need to focus on user experience, 
@@ -23,12 +31,17 @@ def test_basic_extraction():
     We decided to go with a modern design system. Let's schedule a meeting with the design team next week.
     """
     
-    extractor = FeatureExtractor()
+    # Use Anthropic if available, otherwise OpenAI
+    llm_provider = "anthropic" if os.getenv('ANTHROPIC_API_KEY') else "openai"
+    
+    extractor = FeatureExtractor(llm_provider=llm_provider)
     features = extractor.extract(test_text, metadata={'session_id': 'test-123'})
     
     print(f"\nText length: {len(test_text)} characters")
     print(f"Word count: {features.metadata['word_count']}")
     print(f"Sentence count: {features.metadata['sentence_count']}")
+    print(f"LLM Provider: {features.metadata.get('llm_provider', 'unknown')}")
+    print(f"LLM Model: {features.metadata.get('llm_model', 'unknown')}")
     
     print(f"\n{'='*60}")
     print(f"ENTITIES ({len(features.entities)})")
@@ -69,58 +82,6 @@ def test_basic_extraction():
     return features
 
 
-def test_llm_filtering():
-    """Test LLM filtering of key phrases"""
-    print("\n\n")
-    print("=" * 60)
-    print("Testing LLM Key Phrase Filtering")
-    print("=" * 60)
-    
-    test_text = """
-    Okay, so let's talk about the mobile app redesign. I think we really need to focus on user experience, 
-    especially for first-time users. The onboarding flow is confusing right now. 
-    
-    What do you think about using React Native? We should test it on iPhone and Android devices. 
-    We decided to go with a modern design system. Let's schedule a meeting with the design team next week.
-    """
-    
-    # Test without LLM filter (baseline)
-    print("\n--- WITHOUT LLM FILTER (Baseline) ---")
-    extractor_no_filter = FeatureExtractor(use_llm_filter=False)
-    features_no_filter = extractor_no_filter.extract(test_text)
-    print(f"Key phrases ({len(features_no_filter.key_phrases)}):")
-    for phrase in features_no_filter.key_phrases:
-        print(f"  - {phrase}")
-    
-    # Test with LLM filter
-    print("\n--- WITH LLM FILTER (Filtered) ---")
-    api_key = os.getenv('ANTHROPIC_API_KEY')
-    if not api_key:
-        print("⚠ ANTHROPIC_API_KEY not found. Cannot test LLM filtering.")
-        print("   Set your API key in .env file or environment variable.")
-        return None
-    
-    extractor_with_filter = FeatureExtractor(use_llm_filter=True, anthropic_api_key=api_key)
-    features_with_filter = extractor_with_filter.extract(test_text)
-    print(f"Key phrases ({len(features_with_filter.key_phrases)}):")
-    for phrase in features_with_filter.key_phrases:
-        print(f"  ✓ {phrase}")
-    
-    # Show comparison
-    print(f"\n--- COMPARISON ---")
-    print(f"Before filtering: {len(features_no_filter.key_phrases)} phrases")
-    print(f"After filtering:  {len(features_with_filter.key_phrases)} phrases")
-    print(f"Removed:          {len(features_no_filter.key_phrases) - len(features_with_filter.key_phrases)} phrases")
-    
-    removed = set(features_no_filter.key_phrases) - set(features_with_filter.key_phrases)
-    if removed:
-        print(f"\nFiltered out:")
-        for phrase in removed:
-            print(f"  ✗ {phrase}")
-    
-    return features_with_filter
-
-
 def test_with_sample_transcript():
     """Test with sample transcript from shared/examples"""
     print("\n\n")
@@ -128,13 +89,23 @@ def test_with_sample_transcript():
     print("Testing with Sample Transcript")
     print("=" * 60)
     
+    # Check for API key
+    api_key = os.getenv('ANTHROPIC_API_KEY') or os.getenv('OPENAI_API_KEY')
+    if not api_key:
+        print("⚠ API key not found! Skipping this test.")
+        return None
+    
     # Load sample transcript
     try:
         with open('../shared/examples/sample-transcript.json', 'r') as f:
             transcript_data = json.load(f)
         
         text = transcript_data['text']
-        extractor = FeatureExtractor()
+        
+        # Use Anthropic if available, otherwise OpenAI
+        llm_provider = "anthropic" if os.getenv('ANTHROPIC_API_KEY') else "openai"
+        
+        extractor = FeatureExtractor(llm_provider=llm_provider)
         features = extractor.extract(
             text, 
             metadata={
@@ -173,7 +144,14 @@ def test_empty_text():
     print("Testing Edge Case: Empty Text")
     print("=" * 60)
     
-    extractor = FeatureExtractor()
+    # Check for API key
+    api_key = os.getenv('ANTHROPIC_API_KEY') or os.getenv('OPENAI_API_KEY')
+    if not api_key:
+        print("⚠ API key not found! Skipping this test.")
+        return None
+    
+    llm_provider = "anthropic" if os.getenv('ANTHROPIC_API_KEY') else "openai"
+    extractor = FeatureExtractor(llm_provider=llm_provider)
     features = extractor.extract("")
     
     assert len(features.entities) == 0
@@ -182,13 +160,38 @@ def test_empty_text():
     print("✓ Empty text handled correctly")
 
 
+def test_openai_provider():
+    """Test with OpenAI provider if key is available"""
+    print("\n\n")
+    print("=" * 60)
+    print("Testing OpenAI Provider")
+    print("=" * 60)
+    
+    openai_key = os.getenv('OPENAI_API_KEY')
+    if not openai_key:
+        print("⚠ OPENAI_API_KEY not found. Skipping OpenAI test.")
+        return None
+    
+    test_text = "We should use React Native for the mobile app. Let's schedule a meeting next week."
+    
+    try:
+        extractor = FeatureExtractor(llm_provider="openai", llm_model="gpt-4o-mini")
+        features = extractor.extract(test_text)
+        
+        print(f"\n✓ OpenAI extraction successful!")
+        print(f"  Found {len(features.concepts)} concepts, {len(features.entities)} entities")
+        print(f"  Found {len(features.actions)} actions")
+        
+        return features
+    except Exception as e:
+        print(f"✗ OpenAI test failed: {e}")
+        return None
+
+
 if __name__ == "__main__":
     try:
         # Basic extraction test
         features1 = test_basic_extraction()
-        
-        # Test LLM filtering
-        features_filtered = test_llm_filtering()
         
         # Test with sample transcript
         features2 = test_with_sample_transcript()
@@ -196,12 +199,14 @@ if __name__ == "__main__":
         # Edge case test
         test_empty_text()
         
+        # Test OpenAI provider
+        test_openai_provider()
+        
         print("\n\n" + "=" * 60)
-        print("ALL TESTS PASSED ✓")
+        print("ALL TESTS COMPLETED ✓")
         print("=" * 60)
         
     except Exception as e:
         print(f"\n❌ Error: {e}")
         import traceback
         traceback.print_exc()
-
