@@ -99,8 +99,8 @@ Your job: Generate a complete, updated knowledge graph as JSON.
 - **topic**: Specific subjects being discussed (e.g., "Mobile App", "Database Design")
 - **decision**: Concrete decisions made (e.g., "Use PostgreSQL", "Launch in Q2")
 - **question**: Unresolved questions (e.g., "Which framework?", "Budget constraints?")
-- **action**: Action items or next steps (e.g., "Schedule meeting", "Review designs")
-- **person**: Referenced people or stakeholders (e.g., "Sarah (designer)", "Engineering team")
+- **action**: Action items or next steps (e.g., "Schedule meeting", "Review designs") DO NOT INCLUDE THESE IN THE GRAPH
+- **person**: Referenced people or stakeholders (e.g., "Sarah (designer)", "Engineering team") DO NOT INCLUDE THESE IN THE GRAPH
 
 ## Color Suggestions
 
@@ -109,8 +109,6 @@ Use semantic colors:
 - Topics: Purple shades (#8B5CF6, #A78BFA)
 - Decisions: Green shades (#10B981, #34D399)
 - Questions: Amber shades (#F59E0B, #FBBF24)
-- Actions: Red shades (#EF4444, #F87171)
-- People: Indigo shades (#6366F1, #818CF8)
 
 Or create your own semantic groupings with custom colors.
 
