@@ -77,14 +77,19 @@ class SessionOrchestrator:
             now = datetime.utcnow().isoformat() + 'Z'
             self.sessions[session_id] = {
                 'session_id': session_id,
-                'status': 'created',
+                'status': 'created',  # created, active, paused, stopped
                 'created_at': now,
                 'started_at': None,
                 'stopped_at': None,
+                'paused_at': None,
+                'resumed_at': None,
+                'pause_count': 0,
+                'total_paused_duration': 0.0,
                 'graph': None,  # Current graph state
                 'graph_version': 0,
                 'transcript_chunks': [],  # List of all transcript chunks
-                'full_transcript': '',  # Concatenated transcript
+                'full_transcript': '',  # Concatenated transcript (all text so far)
+                'transcript_for_current_graph': '',  # Snapshot of transcript when graph was last updated
                 'chunk_count': 0,
                 'stt_session_id': None,  # Speech-to-text session ID
                 'metadata': {
@@ -183,6 +188,9 @@ class SessionOrchestrator:
             # Update graph
             session['graph'] = new_graph
             session['graph_version'] = new_graph.get('version', session['graph_version'] + 1)
+
+            # Snapshot the current transcript - this is what was used to build this graph
+            session['transcript_for_current_graph'] = session['full_transcript']
 
             # Update metadata
             now = datetime.utcnow().isoformat() + 'Z'
@@ -347,6 +355,111 @@ class SessionOrchestrator:
                     'transcript_length': len(session['full_transcript']),
                     'total_graph_updates': session['metadata']['total_graph_updates']
                 }
+            }
+
+    def pause_session(self, session_id: str) -> Dict[str, Any]:
+        """
+        Pause a session - stops audio capture but keeps state.
+
+        Args:
+            session_id: Session ID to pause
+
+        Returns:
+            dict: Updated session info
+
+        Raises:
+            ValueError: If session doesn't exist or is not active
+        """
+        with self.lock:
+            if session_id not in self.sessions:
+                raise ValueError(f"Session {session_id} not found")
+
+            session = self.sessions[session_id]
+
+            if session['status'] != 'active':
+                raise ValueError(f"Can only pause active sessions (current: {session['status']})")
+
+            # Calculate active duration
+            if session['resumed_at']:
+                last_active_str = session['resumed_at']
+            else:
+                last_active_str = session['started_at']
+
+            last_active = datetime.fromisoformat(last_active_str.replace('Z', '+00:00'))
+            now_dt = datetime.utcnow()
+            active_duration = (now_dt - last_active.replace(tzinfo=None)).total_seconds()
+
+            # Update session state
+            now = datetime.utcnow().isoformat() + 'Z'
+            session['status'] = 'paused'
+            session['paused_at'] = now
+            session['pause_count'] += 1
+
+            logger.info(
+                f"Paused session {session_id} "
+                f"(pause #{session['pause_count']}, "
+                f"was active for {active_duration:.1f}s)"
+            )
+
+            return {
+                'session_id': session_id,
+                'status': 'paused',
+                'paused_at': now,
+                'pause_count': session['pause_count'],
+                'chunk_count': session['chunk_count'],
+                'graph_version': session['graph_version']
+            }
+
+    def resume_session(self, session_id: str) -> Dict[str, Any]:
+        """
+        Resume a paused session - continues from current state.
+
+        Args:
+            session_id: Session ID to resume
+
+        Returns:
+            dict: Updated session info
+
+        Raises:
+            ValueError: If session doesn't exist or is not paused
+        """
+        with self.lock:
+            if session_id not in self.sessions:
+                raise ValueError(f"Session {session_id} not found")
+
+            session = self.sessions[session_id]
+
+            if session['status'] != 'paused':
+                raise ValueError(f"Can only resume paused sessions (current: {session['status']})")
+
+            # Calculate paused duration
+            if session['paused_at']:
+                paused_start = datetime.fromisoformat(session['paused_at'].replace('Z', '+00:00'))
+                now_dt = datetime.utcnow()
+                paused_duration = (now_dt - paused_start.replace(tzinfo=None)).total_seconds()
+                session['total_paused_duration'] += paused_duration
+            else:
+                paused_duration = 0.0
+
+            # Update session state
+            now = datetime.utcnow().isoformat() + 'Z'
+            session['status'] = 'active'
+            session['resumed_at'] = now
+
+            logger.info(
+                f"Resumed session {session_id} "
+                f"(was paused for {paused_duration:.1f}s, "
+                f"total paused: {session['total_paused_duration']:.1f}s)"
+            )
+
+            return {
+                'session_id': session_id,
+                'status': 'active',
+                'resumed_at': now,
+                'pause_count': session['pause_count'],
+                'total_paused_duration': session['total_paused_duration'],
+                'chunk_count': session['chunk_count'],
+                'graph_version': session['graph_version']
             }
 
     def delete_session(self, session_id: str) -> bool:

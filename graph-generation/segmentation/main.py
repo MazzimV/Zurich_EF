@@ -27,14 +27,23 @@ def health():
 def generate():
     """
     Generate or update a knowledge graph from transcript text.
-    
+
     Request body:
     {
         "session_id": "session-123",
-        "new_text": "transcript chunk text",
+        "previous_transcript": "transcript used to build previous graph (recommended)",
+        "new_transcript": "new transcript to process (recommended)",
         "previous_graph": { /* graph object or null */ }
     }
-    
+
+    Legacy format (still supported):
+    {
+        "session_id": "session-123",
+        "new_text": "transcript chunk text",
+        "full_transcript": "complete transcript so far (optional)",
+        "previous_graph": { /* graph object or null */ }
+    }
+
     Returns:
     {
         "session_id": "session-123",
@@ -52,15 +61,33 @@ def generate():
             return jsonify({'error': 'Request body is required'}), 400
         
         session_id = data.get('session_id')
-        new_text = data.get('new_text', '')
         previous_graph = data.get('previous_graph')
-        
-        if not new_text:
-            return jsonify({'error': 'new_text is required'}), 400
-        
+
+        # Support new format (previous_transcript + new_transcript)
+        previous_transcript = data.get('previous_transcript')
+        new_transcript = data.get('new_transcript')
+
+        # Backward compatibility: support old format (full_transcript + new_text)
+        if previous_transcript is None and new_transcript is None:
+            # Old format
+            new_text = data.get('new_text', '')
+            full_transcript = data.get('full_transcript')
+
+            if not new_text:
+                return jsonify({'error': 'new_text or new_transcript is required'}), 400
+
+            # Convert to new format
+            previous_transcript = full_transcript if full_transcript else ''
+            new_transcript = new_text
+        else:
+            # New format - validate
+            if not new_transcript:
+                return jsonify({'error': 'new_transcript is required'}), 400
+
         # Generate graph
         graph = generator.generate(
-            new_text=new_text,
+            previous_transcript=previous_transcript,
+            new_transcript=new_transcript,
             previous_graph=previous_graph,
             session_id=session_id
         )

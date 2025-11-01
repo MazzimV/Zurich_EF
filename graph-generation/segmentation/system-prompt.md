@@ -322,16 +322,23 @@ Or create your own semantic groupings with custom colors.
 
 ## Instructions
 
-Given the **previous_graph** and **new_text** below, generate an updated graph.
+Given the **previous_graph**, **previous_transcript**, and **new_transcript** below, generate an updated graph.
+
+The **previous_transcript** is the text that was used to build the **previous_graph**. The **new_transcript** is new text that needs to be integrated into the graph. Together, they give you complete context for making smart decisions about node reuse, connections, and importance.
 
 **Previous Graph:**
 ```json
 {previous_graph}
 ```
 
-**New Text:**
+**Previous Transcript (used to build the above graph):**
 ```
-{new_text}
+{previous_transcript}
+```
+
+**New Transcript (to process and integrate now):**
+```
+{new_transcript}
 ```
 
 **Output:**

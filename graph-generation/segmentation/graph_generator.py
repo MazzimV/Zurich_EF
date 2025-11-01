@@ -43,23 +43,29 @@ class GraphGenerator:
             )
     
     def generate(
-        self, 
-        new_text: str, 
+        self,
+        previous_transcript: Optional[str] = None,
+        new_transcript: Optional[str] = None,
         previous_graph: Optional[Dict] = None,
         session_id: Optional[str] = None
     ) -> Dict:
         """
         Generate or update a knowledge graph from new transcript text.
-        
+
         Args:
-            new_text: New transcript chunk text
+            previous_transcript: Transcript used to build the previous graph
+            new_transcript: New transcript to process and add to graph
             previous_graph: Previous graph state (or None for first chunk)
             session_id: Optional session ID
-            
+
         Returns:
             Complete updated graph as dictionary
         """
-        if not new_text or not new_text.strip():
+        # Handle None values - backward compatibility
+        if new_transcript is None:
+            new_transcript = ''
+
+        if not new_transcript or not new_transcript.strip():
             # Return empty graph structure if no text
             return self._empty_graph(session_id, previous_graph)
         
@@ -69,14 +75,27 @@ class GraphGenerator:
             user_template = self.prompt_template.split('## Instructions')[1].strip()
         else:
             system_prompt = self.prompt_template
-            user_template = "Given the previous_graph and new_text below, generate an updated graph.\n\n**Previous Graph:**\n```json\n{previous_graph}\n```\n\n**New Text:**\n```\n{new_text}\n```\n\n**Output:**\n\nGenerate ONLY the complete updated graph as valid JSON."
-        
+            user_template = "Given the previous_graph and new_transcript below, generate an updated graph.\n\n**Previous Graph:**\n```json\n{previous_graph}\n```\n\n**New Transcript:**\n```\n{new_transcript}\n```\n\n**Output:**\n\nGenerate ONLY the complete updated graph as valid JSON."
+
         # Format user prompt
         previous_graph_json = json.dumps(previous_graph, indent=2) if previous_graph else "null"
-        user_prompt = user_template.format(
-            previous_graph=previous_graph_json,
-            new_text=new_text
-        )
+
+        # Default to empty string if previous_transcript not provided
+        previous_transcript_text = previous_transcript if previous_transcript else ''
+
+        # Check if template expects previous_transcript (new format)
+        if '{previous_transcript}' in user_template:
+            user_prompt = user_template.format(
+                previous_graph=previous_graph_json,
+                previous_transcript=previous_transcript_text,
+                new_transcript=new_transcript
+            )
+        else:
+            # Backward compatibility: old template format
+            user_prompt = user_template.format(
+                previous_graph=previous_graph_json,
+                new_transcript=new_transcript
+            )
         
         # Call LLM
         try:
@@ -125,23 +144,25 @@ class GraphGenerator:
 
 
 def generate_graph(
-    new_text: str,
+    previous_transcript: Optional[str] = None,
+    new_transcript: Optional[str] = None,
     previous_graph: Optional[Dict] = None,
     session_id: Optional[str] = None,
     model: Optional[str] = None
 ) -> Dict:
     """
     Convenience function to generate a graph.
-    
+
     Args:
-        new_text: New transcript chunk text
+        previous_transcript: Transcript used to build the previous graph
+        new_transcript: New transcript to process
         previous_graph: Previous graph state (or None for first chunk)
         session_id: Optional session ID
         model: Optional Claude model name
-        
+
     Returns:
         Complete updated graph as dictionary
     """
     generator = GraphGenerator(model=model)
-    return generator.generate(new_text, previous_graph, session_id)
+    return generator.generate(previous_transcript, new_transcript, previous_graph, session_id)
 

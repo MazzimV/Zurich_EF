@@ -30,12 +30,16 @@ class Session:
     """Represents a recording session."""
     session_id: str
     started_at: str
-    status: str = "active"  # active, stopped, error
+    status: str = "active"  # active, paused, stopped, error
     full_transcript: str = ""
     chunks: List[TranscriptChunk] = field(default_factory=list)
     chunk_count: int = 0
     total_duration: float = 0.0
     last_chunk_text: str = ""  # For deduplication
+    paused_at: Optional[str] = None
+    resumed_at: Optional[str] = None
+    pause_count: int = 0
+    total_paused_duration: float = 0.0
     metadata: Dict = field(default_factory=dict)
 
     def add_chunk(self, text: str, confidence: Optional[float] = None):
@@ -95,6 +99,10 @@ class Session:
             'full_transcript': self.full_transcript,
             'chunk_count': self.chunk_count,
             'total_duration': self.get_duration(),
+            'paused_at': self.paused_at,
+            'resumed_at': self.resumed_at,
+            'pause_count': self.pause_count,
+            'total_paused_duration': self.total_paused_duration,
             'metadata': self.metadata
         }
 
@@ -213,6 +221,91 @@ class SessionManager:
                     f"{session.chunk_count} chunks, "
                     f"{session.total_duration:.1f}s"
                 )
+            return session
+
+    def pause_session(self, session_id: str) -> Optional[Session]:
+        """
+        Pause a session - stops audio capture but keeps state.
+
+        Args:
+            session_id: Session identifier
+
+        Returns:
+            Session: The paused session, or None if not found
+
+        Raises:
+            ValueError: If session is not in 'active' state
+        """
+        with self._lock:
+            session = self.sessions.get(session_id)
+            if not session:
+                return None
+
+            if session.status != "active":
+                raise ValueError(f"Can only pause active sessions (current: {session.status})")
+
+            # Calculate paused duration from last resume (or start)
+            if session.resumed_at:
+                last_active = datetime.fromisoformat(session.resumed_at.replace('Z', '+00:00'))
+            else:
+                last_active = datetime.fromisoformat(session.started_at.replace('Z', '+00:00'))
+
+            now = datetime.now(last_active.tzinfo)
+            active_duration = (now - last_active).total_seconds()
+
+            # Update session state
+            session.status = "paused"
+            session.paused_at = get_utc_timestamp()
+            session.pause_count += 1
+
+            session_logger.info(
+                f"Paused session {session_id} "
+                f"(pause #{session.pause_count}, "
+                f"was active for {active_duration:.1f}s)"
+            )
+
+            return session
+
+    def resume_session(self, session_id: str) -> Optional[Session]:
+        """
+        Resume a paused session - continues from current state.
+
+        Args:
+            session_id: Session identifier
+
+        Returns:
+            Session: The resumed session, or None if not found
+
+        Raises:
+            ValueError: If session is not in 'paused' state
+        """
+        with self._lock:
+            session = self.sessions.get(session_id)
+            if not session:
+                return None
+
+            if session.status != "paused":
+                raise ValueError(f"Can only resume paused sessions (current: {session.status})")
+
+            # Calculate paused duration
+            if session.paused_at:
+                paused_start = datetime.fromisoformat(session.paused_at.replace('Z', '+00:00'))
+                now = datetime.now(paused_start.tzinfo)
+                paused_duration = (now - paused_start).total_seconds()
+                session.total_paused_duration += paused_duration
+            else:
+                paused_duration = 0.0
+
+            # Update session state
+            session.status = "active"
+            session.resumed_at = get_utc_timestamp()
+
+            session_logger.info(
+                f"Resumed session {session_id} "
+                f"(was paused for {paused_duration:.1f}s, "
+                f"total paused: {session.total_paused_duration:.1f}s)"
+            )
+
             return session
 
     def delete_session(self, session_id: str) -> bool:

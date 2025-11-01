@@ -49,6 +49,8 @@
       </div>
       <div class="live-buttons" style="margin-top: 15px;">
         <button class="btn-success" id="start-live-session">Start Live Session</button>
+        <button class="btn-warning" id="pause-live-session" disabled>Pause Session</button>
+        <button class="btn-success" id="resume-live-session" disabled style="display: none;">Resume Session</button>
         <button class="btn-danger" id="stop-live-session" disabled>Stop Session</button>
         <button class="btn-secondary" id="get-session-state" disabled>Get State</button>
       </div>
@@ -366,6 +368,8 @@
 
       // Session controls
       document.getElementById('start-live-session').addEventListener('click', startLiveSession);
+      document.getElementById('pause-live-session').addEventListener('click', pauseLiveSession);
+      document.getElementById('resume-live-session').addEventListener('click', resumeLiveSession);
       document.getElementById('stop-live-session').addEventListener('click', stopLiveSession);
       document.getElementById('get-session-state').addEventListener('click', getSessionState);
     }
@@ -461,8 +465,8 @@
               updateLiveStatus('Disconnected', false);
             },
             onStatusChange: (state, message) => {
-              // Keep indicator active during 'stopping' state (grace period)
-              const isActive = state === 'active' || state === 'stopping';
+              // Keep indicator active during 'active', 'stopping', and 'resuming' states
+              const isActive = state === 'active' || state === 'stopping' || state === 'resuming';
               updateLiveStatus(message, isActive);
             }
           });
@@ -474,6 +478,10 @@
         // Update UI
         document.getElementById('session-id-display').textContent = `Session: ${sessionData.session_id}`;
         document.getElementById('start-live-session').disabled = true;
+        document.getElementById('pause-live-session').disabled = false;
+        document.getElementById('pause-live-session').style.display = 'inline-block';
+        document.getElementById('resume-live-session').disabled = true;
+        document.getElementById('resume-live-session').style.display = 'none';
         document.getElementById('stop-live-session').disabled = false;
         document.getElementById('get-session-state').disabled = false;
 
@@ -487,6 +495,64 @@
     }
 
     /**
+     * Pause live session
+     */
+    async function pauseLiveSession() {
+      try {
+        if (!sessionManager) {
+          console.warn('No active session manager');
+          return;
+        }
+
+        console.log('⏸️  Pausing session...');
+
+        const pausedData = await sessionManager.pauseSession();
+        console.log('✅ Session paused:', pausedData);
+
+        // Update UI - hide pause, show resume
+        document.getElementById('pause-live-session').style.display = 'none';
+        document.getElementById('resume-live-session').disabled = false;
+        document.getElementById('resume-live-session').style.display = 'inline-block';
+
+        updateLiveStatus('Session paused - not capturing audio', false);
+
+      } catch (error) {
+        console.error('Failed to pause session:', error);
+        updateLiveStatus(`Error: ${error.message}`, false);
+        alert(`Failed to pause session:\n${error.message}`);
+      }
+    }
+
+    /**
+     * Resume paused session
+     */
+    async function resumeLiveSession() {
+      try {
+        if (!sessionManager) {
+          console.warn('No active session manager');
+          return;
+        }
+
+        console.log('▶️  Resuming session...');
+
+        const resumedData = await sessionManager.resumeSession();
+        console.log('✅ Session resumed:', resumedData);
+
+        // Update UI - hide resume, show pause
+        document.getElementById('resume-live-session').style.display = 'none';
+        document.getElementById('pause-live-session').disabled = false;
+        document.getElementById('pause-live-session').style.display = 'inline-block';
+
+        updateLiveStatus('Session active - capturing audio', true);
+
+      } catch (error) {
+        console.error('Failed to resume session:', error);
+        updateLiveStatus(`Error: ${error.message}`, false);
+        alert(`Failed to resume session:\n${error.message}`);
+      }
+    }
+
+    /**
      * Stop live session with grace period
      */
     async function stopLiveSession() {
@@ -496,7 +562,9 @@
           return;
         }
 
-        // Disable stop button during grace period
+        // Disable buttons during grace period
+        document.getElementById('pause-live-session').disabled = true;
+        document.getElementById('resume-live-session').disabled = true;
         document.getElementById('stop-live-session').disabled = true;
         document.getElementById('get-session-state').disabled = true;
 
@@ -511,6 +579,10 @@
         // Update UI
         document.getElementById('session-id-display').textContent = '';
         document.getElementById('start-live-session').disabled = false;
+        document.getElementById('pause-live-session').disabled = true;
+        document.getElementById('pause-live-session').style.display = 'inline-block';
+        document.getElementById('resume-live-session').disabled = true;
+        document.getElementById('resume-live-session').style.display = 'none';
         document.getElementById('stop-live-session').disabled = true;
         document.getElementById('get-session-state').disabled = true;
 
@@ -536,6 +608,8 @@
 
         // Re-enable buttons on error
         document.getElementById('start-live-session').disabled = false;
+        document.getElementById('pause-live-session').disabled = true;
+        document.getElementById('resume-live-session').disabled = true;
         document.getElementById('stop-live-session').disabled = true;
 
         alert(`Failed to stop session:\n${error.message}`);

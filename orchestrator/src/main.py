@@ -254,8 +254,9 @@ def stream_session(session_id: str):
     if not session:
         return jsonify({'error': f'Session {session_id} not found'}), 404
 
-    if session['status'] != 'active':
-        return jsonify({'error': f'Session {session_id} is not active'}), 400
+    # Allow streaming for both active and paused sessions (SSE connection stays open)
+    if session['status'] not in ['active', 'paused']:
+        return jsonify({'error': f'Session {session_id} is not active or paused'}), 400
 
     def generate():
         """Generator function for SSE stream."""
@@ -295,12 +296,19 @@ def stream_session(session_id: str):
                         session_state = orchestrator.get_session(session_id)
                         previous_graph = session_state.get('graph')
 
+                        # Get the transcript that was used to build the current graph
+                        previous_transcript = session_state.get('transcript_for_current_graph', '')
+
+                        # The new transcript is what we just received
+                        new_transcript = chunk_data.get('text', '')
+
                         try:
                             graph_response = requests.post(
                                 f"{GRAPH_SERVICE_URL}/generate-graph",
                                 json={
                                     'session_id': session_id,
-                                    'new_text': chunk_data.get('text', ''),
+                                    'previous_transcript': previous_transcript,
+                                    'new_transcript': new_transcript,
                                     'previous_graph': previous_graph
                                 },
                                 headers={'Content-Type': 'application/json'},
@@ -458,6 +466,124 @@ def stop_session(session_id: str):
 
     except Exception as e:
         logger.error(f"Error stopping session: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/sessions/<session_id>/pause', methods=['POST'])
+def pause_session(session_id: str):
+    """
+    Pause a session - stops audio capture but keeps state.
+
+    Args:
+        session_id: Session ID
+
+    Returns:
+        200: Session paused
+        400: Invalid state
+        404: Session not found
+        500: Error pausing session
+    """
+    try:
+        # Check session exists
+        session = orchestrator.get_session(session_id)
+        if not session:
+            return jsonify({'error': f'Session {session_id} not found'}), 404
+
+        # Pause STT session first
+        try:
+            stt_response = requests.post(
+                f"{STT_SERVICE_URL}/sessions/{session_id}/pause",
+                json={},
+                headers={'Content-Type': 'application/json'},
+                timeout=5
+            )
+
+            if stt_response.status_code != 200:
+                logger.error(f"STT pause failed: {stt_response.status_code} - {stt_response.text}")
+                return jsonify({
+                    'error': 'Failed to pause STT session',
+                    'details': stt_response.text
+                }), 500
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to connect to STT service: {e}")
+            return jsonify({
+                'error': 'Failed to connect to STT service',
+                'details': str(e)
+            }), 503
+
+        # Pause orchestrator session
+        result = orchestrator.pause_session(session_id)
+
+        logger.info(f"Session paused successfully: {session_id}")
+
+        return jsonify(result), 200
+
+    except ValueError as e:
+        logger.warning(f"Cannot pause session {session_id}: {str(e)}")
+        return jsonify({'error': str(e)}), 400
+
+    except Exception as e:
+        logger.error(f"Error pausing session: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/sessions/<session_id>/resume', methods=['POST'])
+def resume_session(session_id: str):
+    """
+    Resume a paused session - continues from current state.
+
+    Args:
+        session_id: Session ID
+
+    Returns:
+        200: Session resumed
+        400: Invalid state
+        404: Session not found
+        500: Error resuming session
+    """
+    try:
+        # Check session exists
+        session = orchestrator.get_session(session_id)
+        if not session:
+            return jsonify({'error': f'Session {session_id} not found'}), 404
+
+        # Resume STT session first
+        try:
+            stt_response = requests.post(
+                f"{STT_SERVICE_URL}/sessions/{session_id}/resume",
+                json={},
+                headers={'Content-Type': 'application/json'},
+                timeout=5
+            )
+
+            if stt_response.status_code != 200:
+                logger.error(f"STT resume failed: {stt_response.status_code} - {stt_response.text}")
+                return jsonify({
+                    'error': 'Failed to resume STT session',
+                    'details': stt_response.text
+                }), 500
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to connect to STT service: {e}")
+            return jsonify({
+                'error': 'Failed to connect to STT service',
+                'details': str(e)
+            }), 503
+
+        # Resume orchestrator session
+        result = orchestrator.resume_session(session_id)
+
+        logger.info(f"Session resumed successfully: {session_id}")
+
+        return jsonify(result), 200
+
+    except ValueError as e:
+        logger.warning(f"Cannot resume session {session_id}: {str(e)}")
+        return jsonify({'error': str(e)}), 400
+
+    except Exception as e:
+        logger.error(f"Error resuming session: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 
