@@ -1,0 +1,63 @@
+{
+  "session_id": "demo-session-123",
+  "new_text": "Yeah, and we should also make sure the mobile app is responsive on all devices. We need to test it on both iPhone and Android. Maybe we can set up some automated testing too.",
+  "previous_graph": {
+    "session_id": "demo-session-123",
+    "version": 1,
+    "timestamp": "2025-11-01T10:30:05Z",
+    "nodes": [
+      {
+        "id": "node-1",
+        "label": "Mobile App Redesign",
+        "type": "topic",
+        "description": "Overall project to redesign the mobile application",
+        "importance": 0.95,
+        "confidence": 0.98,
+        "created_at": "2025-11-01T10:30:05Z",
+        "updated_at": "2025-11-01T10:30:05Z",
+        "color": "#8B5CF6",
+        "metadata": {
+          "tags": ["mobile", "design", "project"],
+          "mentions_count": 1
+        }
+      },
+      {
+        "id": "node-2",
+        "label": "User Experience",
+        "type": "topic",
+        "description": "Focus area for improving overall UX",
+        "importance": 0.9,
+        "confidence": 0.95,
+        "created_at": "2025-11-01T10:30:05Z",
+        "updated_at": "2025-11-01T10:30:05Z",
+        "color": "#8B5CF6",
+        "metadata": {
+          "tags": ["UX", "priority"],
+          "mentions_count": 1
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge-1",
+        "source": "node-2",
+        "target": "node-1",
+        "type": "supports",
+        "label": "key focus of",
+        "strength": 0.95,
+        "confidence": 0.98,
+        "created_at": "2025-11-01T10:30:05Z",
+        "metadata": {
+          "reason": "UX is a primary focus area of the redesign"
+        }
+      }
+    ],
+    "metadata": {
+      "summary": "Initial discussion about mobile app redesign focusing on UX",
+      "main_themes": ["mobile app", "UX"],
+      "duration_seconds": 8,
+      "graph_complexity": 0.2,
+      "layout_hint": "force"
+    }
+  }
+}

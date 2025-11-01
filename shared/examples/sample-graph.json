@@ -1,0 +1,156 @@
+{
+  "session_id": "demo-session-123",
+  "version": 1,
+  "timestamp": "2025-11-01T10:30:05Z",
+  "nodes": [
+    {
+      "id": "node-1",
+      "label": "Mobile App Redesign",
+      "type": "topic",
+      "description": "Overall project to redesign the mobile application",
+      "importance": 0.95,
+      "confidence": 0.98,
+      "created_at": "2025-11-01T10:30:05Z",
+      "updated_at": "2025-11-01T10:30:05Z",
+      "color": "#8B5CF6",
+      "metadata": {
+        "tags": ["mobile", "design", "project"],
+        "mentions_count": 1
+      }
+    },
+    {
+      "id": "node-2",
+      "label": "User Experience",
+      "type": "topic",
+      "description": "Focus area for improving overall UX",
+      "importance": 0.9,
+      "confidence": 0.95,
+      "created_at": "2025-11-01T10:30:05Z",
+      "updated_at": "2025-11-01T10:30:05Z",
+      "color": "#8B5CF6",
+      "metadata": {
+        "tags": ["UX", "priority"],
+        "mentions_count": 1
+      }
+    },
+    {
+      "id": "node-3",
+      "label": "First-Time Users",
+      "type": "person",
+      "description": "Target user group: people using the app for the first time",
+      "importance": 0.75,
+      "confidence": 0.9,
+      "created_at": "2025-11-01T10:30:05Z",
+      "updated_at": "2025-11-01T10:30:05Z",
+      "color": "#6366F1",
+      "metadata": {
+        "tags": ["users", "onboarding"],
+        "mentions_count": 1
+      }
+    },
+    {
+      "id": "node-4",
+      "label": "Onboarding Flow",
+      "type": "concept",
+      "description": "The current onboarding process that needs improvement",
+      "importance": 0.8,
+      "confidence": 0.92,
+      "created_at": "2025-11-01T10:30:05Z",
+      "updated_at": "2025-11-01T10:30:05Z",
+      "color": "#3B82F6",
+      "metadata": {
+        "tags": ["onboarding", "UX", "problem"],
+        "mentions_count": 1
+      }
+    },
+    {
+      "id": "node-5",
+      "label": "Confusing UI",
+      "type": "question",
+      "description": "Current issue: onboarding flow is confusing",
+      "importance": 0.7,
+      "confidence": 0.88,
+      "created_at": "2025-11-01T10:30:05Z",
+      "updated_at": "2025-11-01T10:30:05Z",
+      "color": "#F59E0B",
+      "metadata": {
+        "tags": ["problem", "UI"],
+        "mentions_count": 1
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-1",
+      "source": "node-2",
+      "target": "node-1",
+      "type": "supports",
+      "label": "key focus of",
+      "strength": 0.95,
+      "confidence": 0.98,
+      "created_at": "2025-11-01T10:30:05Z",
+      "metadata": {
+        "reason": "UX is a primary focus area of the redesign"
+      }
+    },
+    {
+      "id": "edge-2",
+      "source": "node-3",
+      "target": "node-2",
+      "type": "relates_to",
+      "label": "target for",
+      "strength": 0.85,
+      "confidence": 0.92,
+      "created_at": "2025-11-01T10:30:05Z",
+      "metadata": {
+        "reason": "First-time users are a key consideration for UX"
+      }
+    },
+    {
+      "id": "edge-3",
+      "source": "node-4",
+      "target": "node-3",
+      "type": "relates_to",
+      "label": "affects",
+      "strength": 0.9,
+      "confidence": 0.95,
+      "created_at": "2025-11-01T10:30:05Z",
+      "metadata": {
+        "reason": "Onboarding flow specifically impacts first-time users"
+      }
+    },
+    {
+      "id": "edge-4",
+      "source": "node-5",
+      "target": "node-4",
+      "type": "contradicts",
+      "label": "problem with",
+      "strength": 0.88,
+      "confidence": 0.9,
+      "created_at": "2025-11-01T10:30:05Z",
+      "metadata": {
+        "reason": "The confusing UI is a problem with the current onboarding"
+      }
+    },
+    {
+      "id": "edge-5",
+      "source": "node-4",
+      "target": "node-2",
+      "type": "supports",
+      "label": "part of",
+      "strength": 0.8,
+      "confidence": 0.88,
+      "created_at": "2025-11-01T10:30:05Z",
+      "metadata": {
+        "reason": "Onboarding is part of the overall user experience"
+      }
+    }
+  ],
+  "metadata": {
+    "summary": "Discussion about mobile app redesign with focus on improving user experience, particularly for first-time users and the onboarding flow.",
+    "main_themes": ["mobile app", "UX", "onboarding", "first-time users"],
+    "duration_seconds": 8,
+    "graph_complexity": 0.3,
+    "layout_hint": "force"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "timestamp": "2025-11-01T10:30:00Z",
+  "text": "Okay, so let's talk about the mobile app redesign. I think we really need to focus on user experience, especially for first-time users. The onboarding flow is confusing right now.",
+  "session_id": "demo-session-123",
+  "chunk_id": 1,
+  "confidence": 0.95,
+  "metadata": {
+    "duration_ms": 8000
+  }
+}

@@ -1,0 +1,222 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Knowledge Graph",
+  "description": "A knowledge graph generated from brainstorming discussion",
+  "type": "object",
+  "required": ["session_id", "version", "timestamp", "nodes", "edges", "metadata"],
+  "properties": {
+    "session_id": {
+      "type": "string",
+      "description": "Unique identifier for this session"
+    },
+    "version": {
+      "type": "integer",
+      "description": "Version number of this graph (increments with each update)",
+      "minimum": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp when this graph was generated"
+    },
+    "nodes": {
+      "type": "array",
+      "description": "Array of graph nodes",
+      "items": {
+        "$ref": "#/definitions/node"
+      }
+    },
+    "edges": {
+      "type": "array",
+      "description": "Array of graph edges",
+      "items": {
+        "$ref": "#/definitions/edge"
+      }
+    },
+    "metadata": {
+      "$ref": "#/definitions/metadata"
+    }
+  },
+  "definitions": {
+    "node": {
+      "type": "object",
+      "required": ["id", "label", "type", "importance", "confidence", "color"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Stable, unique identifier for this node"
+        },
+        "label": {
+          "type": "string",
+          "description": "Display text for the node",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "enum": ["concept", "topic", "decision", "question", "action", "person"],
+          "description": "Semantic type of the node"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional detailed description"
+        },
+        "importance": {
+          "type": "number",
+          "description": "Importance score (affects visual size)",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "confidence": {
+          "type": "number",
+          "description": "Confidence in this node's relevance",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When this node was first created"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When this node was last updated"
+        },
+        "color": {
+          "type": "string",
+          "description": "Hex color code (e.g., #3B82F6) or color name"
+        },
+        "size": {
+          "type": "number",
+          "description": "Optional explicit size override"
+        },
+        "position": {
+          "type": "object",
+          "description": "Optional position hint for layout",
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            }
+          }
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Additional metadata",
+          "properties": {
+            "tags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "mentions_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "related_timestamps": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "required": ["id", "source", "target", "type", "strength", "confidence"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for this edge"
+        },
+        "source": {
+          "type": "string",
+          "description": "ID of the source node"
+        },
+        "target": {
+          "type": "string",
+          "description": "ID of the target node"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["relates_to", "causes", "supports", "contradicts", "follows", "elaborates"],
+          "description": "Type of relationship"
+        },
+        "label": {
+          "type": "string",
+          "description": "Optional label describing the relationship"
+        },
+        "strength": {
+          "type": "number",
+          "description": "Strength of the relationship",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "confidence": {
+          "type": "number",
+          "description": "Confidence in this relationship",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When this edge was created"
+        },
+        "metadata": {
+          "type": "object",
+          "properties": {
+            "reason": {
+              "type": "string",
+              "description": "Explanation of why this connection exists"
+            }
+          }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Graph-level metadata",
+      "properties": {
+        "summary": {
+          "type": "string",
+          "description": "Brief summary of the discussion"
+        },
+        "main_themes": {
+          "type": "array",
+          "description": "Main themes identified in the discussion",
+          "items": {
+            "type": "string"
+          }
+        },
+        "participant_count": {
+          "type": "integer",
+          "description": "Number of participants (if known)",
+          "minimum": 1
+        },
+        "duration_seconds": {
+          "type": "integer",
+          "description": "Duration of the session in seconds",
+          "minimum": 0
+        },
+        "graph_complexity": {
+          "type": "number",
+          "description": "Measure of graph complexity (0-1)",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "layout_hint": {
+          "type": "string",
+          "enum": ["force", "hierarchical", "radial", "timeline"],
+          "description": "Suggested layout algorithm"
+        }
+      }
+    }
+  }
+}
