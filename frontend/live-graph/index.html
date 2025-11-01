@@ -16,8 +16,14 @@
       <p>Real-time knowledge graph from speech transcription</p>
     </header>
 
+    <!-- Mode Selector -->
+    <div class="mode-selector">
+      <button class="mode-tab active" id="tab-test">Test Mode</button>
+      <button class="mode-tab" id="tab-live">Live Mode (Orchestrator)</button>
+    </div>
+
     <!-- Test Controls -->
-    <div class="test-controls">
+    <div class="test-controls" id="test-mode-panel">
       <h4>Test Mode Controls</h4>
       <div class="test-buttons">
         <button class="btn-primary" id="test-static">Test 1: Load Static Graph</button>
@@ -30,6 +36,28 @@
           <span class="status-dot" id="status-dot"></span>
           <span id="status-text">Ready</span>
         </span>
+      </div>
+    </div>
+
+    <!-- Live Mode Controls -->
+    <div class="live-controls" id="live-mode-panel" style="display: none;">
+      <h4>Live Mode - Real Orchestrator Connection</h4>
+      <div class="config-section">
+        <label for="orchestrator-url">Orchestrator URL:</label>
+        <input type="text" id="orchestrator-url" value="http://localhost:8003" style="width: 300px; padding: 6px; margin-left: 10px;">
+        <button class="btn-secondary" id="check-health">Check Health</button>
+      </div>
+      <div class="live-buttons" style="margin-top: 15px;">
+        <button class="btn-success" id="start-live-session">Start Live Session</button>
+        <button class="btn-danger" id="stop-live-session" disabled>Stop Session</button>
+        <button class="btn-secondary" id="get-session-state" disabled>Get State</button>
+      </div>
+      <div style="margin-top: 10px;">
+        <span class="status-indicator">
+          <span class="status-dot" id="live-status-dot"></span>
+          <span id="live-status-text">Not connected</span>
+        </span>
+        <span id="session-id-display" style="margin-left: 15px; font-size: 13px; color: #666;"></span>
       </div>
     </div>
 
@@ -63,6 +91,7 @@
   <!-- Load components -->
   <script src="js/graph-renderer.js"></script>
   <script src="js/transcript-display.js"></script>
+  <script src="js/session-manager.js"></script>
   <script src="test-data/mock-updates.js"></script>
 
   <!-- Main application script -->
@@ -70,8 +99,10 @@
     // Initialize components
     let graphRenderer;
     let transcriptDisplay;
+    let sessionManager;
     let mockUpdateInterval;
     let currentMockIndex = 0;
+    let currentMode = 'test';  // 'test' or 'live'
 
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', () => {
@@ -94,6 +125,7 @@
 
       // Set up event listeners
       setupEventListeners();
+      setupLiveModeListeners();
     });
 
     /**
@@ -304,6 +336,207 @@
         dot.classList.add('active');
       } else {
         dot.classList.remove('active');
+      }
+    }
+
+    /**
+     * Update live status indicator
+     */
+    function updateLiveStatus(text, active) {
+      document.getElementById('live-status-text').textContent = text;
+      const dot = document.getElementById('live-status-dot');
+
+      if (active) {
+        dot.classList.add('active');
+      } else {
+        dot.classList.remove('active');
+      }
+    }
+
+    /**
+     * Set up live mode event listeners
+     */
+    function setupLiveModeListeners() {
+      // Mode tabs
+      document.getElementById('tab-test').addEventListener('click', () => switchMode('test'));
+      document.getElementById('tab-live').addEventListener('click', () => switchMode('live'));
+
+      // Health check
+      document.getElementById('check-health').addEventListener('click', checkOrchestratorHealth);
+
+      // Session controls
+      document.getElementById('start-live-session').addEventListener('click', startLiveSession);
+      document.getElementById('stop-live-session').addEventListener('click', stopLiveSession);
+      document.getElementById('get-session-state').addEventListener('click', getSessionState);
+    }
+
+    /**
+     * Switch between test and live mode
+     */
+    function switchMode(mode) {
+      currentMode = mode;
+
+      // Update tabs
+      document.getElementById('tab-test').classList.toggle('active', mode === 'test');
+      document.getElementById('tab-live').classList.toggle('active', mode === 'live');
+
+      // Show/hide panels
+      document.getElementById('test-mode-panel').style.display = mode === 'test' ? 'block' : 'none';
+      document.getElementById('live-mode-panel').style.display = mode === 'live' ? 'block' : 'none';
+
+      console.log(`Switched to ${mode} mode`);
+    }
+
+    /**
+     * Check orchestrator health
+     */
+    async function checkOrchestratorHealth() {
+      try {
+        const url = document.getElementById('orchestrator-url').value;
+        updateLiveStatus('Checking health...', false);
+
+        const response = await fetch(`${url}/health`);
+        if (!response.ok) {
+          throw new Error(`Health check failed: ${response.status}`);
+        }
+
+        const health = await response.json();
+        console.log('Orchestrator health:', health);
+
+        updateLiveStatus(`Healthy: ${health.status}`, false);
+        alert(`Orchestrator is ${health.status}\n\nDependencies:\n- STT: ${health.dependencies.speech_to_text.healthy ? '✅' : '❌'}\n- Graph: ${health.dependencies.graph_generation.healthy ? '✅' : '❌'}`);
+
+      } catch (error) {
+        console.error('Health check failed:', error);
+        updateLiveStatus('Health check failed', false);
+        alert(`Failed to connect to orchestrator:\n${error.message}\n\nMake sure:\n1. Orchestrator is running (port 8003)\n2. STT service is running (port 8005)\n3. Graph service is running (port 8002)`);
+      }
+    }
+
+    /**
+     * Start live session
+     */
+    async function startLiveSession() {
+      try {
+        const url = document.getElementById('orchestrator-url').value;
+        updateLiveStatus('Starting session...', true);
+
+        // Clear previous graph/transcript
+        graphRenderer.clear();
+        transcriptDisplay.clear();
+        updateGraphInfo({ version: 0, nodes: [], edges: [] });
+
+        // Create session manager if not exists
+        if (!sessionManager || sessionManager.orchestratorUrl !== url) {
+          sessionManager = new SessionManager(url, {
+            onUpdate: (data) => {
+              console.log('📨 Received SSE update:', data);
+
+              // Update graph
+              if (data.graph) {
+                graphRenderer.updateGraph(data.graph);
+                updateGraphInfo(data.graph);
+              }
+
+              // Add transcript
+              if (data.transcript) {
+                transcriptDisplay.addChunk({
+                  text: data.transcript.text,
+                  speaker: data.transcript.speaker || 'Speaker',
+                  timestamp: data.timestamp,
+                  chunk_id: data.chunk_id
+                });
+              }
+            },
+            onError: (error) => {
+              console.error('SessionManager error:', error);
+              updateLiveStatus(`Error: ${error.message}`, false);
+            },
+            onConnect: () => {
+              console.log('✅ Connected to SSE stream');
+              updateLiveStatus('Connected - receiving updates', true);
+            },
+            onDisconnect: () => {
+              console.log('Disconnected from SSE stream');
+              updateLiveStatus('Disconnected', false);
+            },
+            onStatusChange: (state, message) => {
+              updateLiveStatus(message, state === 'active');
+            }
+          });
+        }
+
+        // Start session
+        const sessionData = await sessionManager.startSession();
+
+        // Update UI
+        document.getElementById('session-id-display').textContent = `Session: ${sessionData.session_id}`;
+        document.getElementById('start-live-session').disabled = true;
+        document.getElementById('stop-live-session').disabled = false;
+        document.getElementById('get-session-state').disabled = false;
+
+        console.log('✅ Live session started:', sessionData);
+
+      } catch (error) {
+        console.error('Failed to start live session:', error);
+        updateLiveStatus(`Failed: ${error.message}`, false);
+        alert(`Failed to start session:\n${error.message}`);
+      }
+    }
+
+    /**
+     * Stop live session
+     */
+    async function stopLiveSession() {
+      try {
+        if (!sessionManager) {
+          console.warn('No active session manager');
+          return;
+        }
+
+        updateLiveStatus('Stopping session...', false);
+
+        const finalState = await sessionManager.stopSession();
+        console.log('✅ Session stopped:', finalState);
+
+        // Update UI
+        document.getElementById('session-id-display').textContent = '';
+        document.getElementById('start-live-session').disabled = false;
+        document.getElementById('stop-live-session').disabled = true;
+        document.getElementById('get-session-state').disabled = true;
+
+        updateLiveStatus('Session stopped', false);
+
+        // Show final summary
+        if (finalState && finalState.summary) {
+          alert(`Session stopped successfully!\n\nSummary:\n- Chunks: ${finalState.summary.chunk_count}\n- Graph version: ${finalState.summary.graph_version}\n- Transcript length: ${finalState.summary.transcript_length} chars\n- Graph updates: ${finalState.summary.total_graph_updates}`);
+        }
+
+      } catch (error) {
+        console.error('Failed to stop session:', error);
+        updateLiveStatus(`Error: ${error.message}`, false);
+        alert(`Failed to stop session:\n${error.message}`);
+      }
+    }
+
+    /**
+     * Get current session state
+     */
+    async function getSessionState() {
+      try {
+        if (!sessionManager) {
+          alert('No active session');
+          return;
+        }
+
+        const state = await sessionManager.getSessionState();
+        console.log('Current session state:', state);
+
+        alert(`Session State:\n\nID: ${state.session_id}\nStatus: ${state.status}\nNodes: ${state.graph?.nodes?.length || 0}\nEdges: ${state.graph?.edges?.length || 0}\nChunks: ${state.chunk_count}\nTranscript length: ${state.full_transcript?.length || 0} chars`);
+
+      } catch (error) {
+        console.error('Failed to get session state:', error);
+        alert(`Failed to get session state:\n${error.message}`);
       }
     }
 

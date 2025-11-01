@@ -179,6 +179,39 @@ header p {
   height: 100%;
 }
 
+/* Mode selector */
+.mode-selector {
+  display: flex;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e5e5;
+  padding: 0 20px;
+}
+
+.mode-tab {
+  padding: 15px 25px;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mode-tab:hover {
+  color: #333;
+  background: #f0f0f0;
+  transform: none;
+  box-shadow: none;
+}
+
+.mode-tab.active {
+  color: #8B5CF6;
+  border-bottom-color: #8B5CF6;
+  background: white;
+}
+
 /* Test controls section */
 .test-controls {
   padding: 20px;
@@ -194,6 +227,45 @@ header p {
 }
 
 .test-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Live controls section */
+.live-controls {
+  padding: 20px;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.live-controls h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 15px;
+  color: #333;
+}
+
+.config-section {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.config-section label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #555;
+}
+
+.config-section input[type="text"] {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: monospace;
+}
+
+.live-buttons {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;

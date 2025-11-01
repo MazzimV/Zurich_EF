@@ -121,34 +121,51 @@ live-graph/
     └── mock-updates.js    # Simulated SSE for Test 2
 ```
 
-## Connecting to Live Orchestrator
+## Live Mode - Real Orchestrator Connection
 
-To connect to the real orchestrator SSE stream (not implemented in this test version):
+**Now fully implemented!** Switch to "Live Mode" tab to connect to the real orchestrator.
 
-```javascript
-// Create SSE connection to orchestrator
-const eventSource = new EventSource('http://localhost:8003/sessions/{session_id}/stream');
+### Prerequisites
 
-eventSource.onmessage = (event) => {
-  const data = JSON.parse(event.data);
+Make sure all services are running:
 
-  // Update graph
-  graphRenderer.updateGraph(data.graph);
+```bash
+# Terminal 1: Start orchestrator (port 8003)
+cd orchestrator/src
+python3 main.py
 
-  // Add transcript
-  transcriptDisplay.addChunk({
-    text: data.transcript.text,
-    speaker: data.transcript.speaker,
-    timestamp: data.timestamp,
-    chunk_id: data.chunk_id
-  });
-};
+# Terminal 2: Start STT service (port 8005)
+cd speech-to-text/src
+python3 main.py
 
-eventSource.onerror = (error) => {
-  console.error('SSE connection error:', error);
-  eventSource.close();
-};
+# Terminal 3: Start graph generation (port 8002)
+cd graph-generation/segmentation
+python3 main.py
 ```
+
+### Using Live Mode
+
+1. **Open the page** and click "Live Mode (Orchestrator)" tab
+2. **Check health**: Click "Check Health" to verify all services are running
+3. **Start session**: Click "Start Live Session"
+   - Session will be created on orchestrator
+   - SSE stream connection will open
+   - Status indicator will pulse when active
+4. **Start speaking**: The STT service will transcribe your speech
+5. **Watch updates**: Graph updates arrive every ~8 seconds
+   - New transcript chunks appear in left panel
+   - Graph evolves in real-time with smooth transitions
+6. **Stop session**: Click "Stop Session" when done
+   - Final state is saved to `./sessions/` directory
+   - Summary shows total chunks, graph version, etc.
+
+### Features
+
+- **Automatic reconnection**: If SSE connection drops, error is displayed
+- **Health monitoring**: Check service status before starting
+- **Session state**: View current session state at any time
+- **Error handling**: Clear error messages for connection issues
+- **Configurable URL**: Change orchestrator URL if needed
 
 ## Graph Data Format
 
