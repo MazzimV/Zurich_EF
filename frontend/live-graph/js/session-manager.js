@@ -11,6 +11,7 @@ class SessionManager {
     this.eventSource = null;
     this.isConnected = false;
     this.isActive = false;
+    this.isPaused = false;
     this.isStopping = false;
     this.gracePeriodTimer = null;
 
@@ -237,6 +238,103 @@ class SessionManager {
   }
 
   /**
+   * Pause the current session - stops audio capture but keeps state
+   * @returns {Promise<Object>} Paused session state
+   */
+  async pauseSession() {
+    if (!this.sessionId || !this.isActive) {
+      throw new Error('No active session to pause');
+    }
+
+    if (this.isPaused) {
+      console.warn('Session is already paused');
+      return null;
+    }
+
+    try {
+      this._updateStatus('pausing', 'Pausing session...');
+      console.log('⏸️  Pausing session...');
+
+      // Call orchestrator to pause session
+      const response = await fetch(`${this.orchestratorUrl}/sessions/${this.sessionId}/pause`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({})
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to pause session: ${response.status} - ${errorText}`);
+      }
+
+      const pausedData = await response.json();
+      console.log('✅ Session paused:', pausedData);
+
+      this.isActive = false;
+      this.isPaused = true;
+
+      this._updateStatus('paused', 'Session paused - not capturing audio');
+      this.onStatusChange('paused', 'Session paused');
+
+      return pausedData;
+
+    } catch (error) {
+      console.error('❌ Failed to pause session:', error);
+      this._updateStatus('error', `Error: ${error.message}`);
+      this.onError(error);
+      throw error;
+    }
+  }
+
+  /**
+   * Resume a paused session - continues from current state
+   * @returns {Promise<Object>} Resumed session state
+   */
+  async resumeSession() {
+    if (!this.sessionId || !this.isPaused) {
+      throw new Error('No paused session to resume');
+    }
+
+    try {
+      this._updateStatus('resuming', 'Resuming session...');
+      console.log('▶️  Resuming session...');
+
+      // Call orchestrator to resume session
+      const response = await fetch(`${this.orchestratorUrl}/sessions/${this.sessionId}/resume`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({})
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to resume session: ${response.status} - ${errorText}`);
+      }
+
+      const resumedData = await response.json();
+      console.log('✅ Session resumed:', resumedData);
+
+      this.isActive = true;
+      this.isPaused = false;
+
+      this._updateStatus('active', 'Session resumed - capturing audio');
+      this.onStatusChange('active', 'Session active - receiving updates');
+
+      return resumedData;
+
+    } catch (error) {
+      console.error('❌ Failed to resume session:', error);
+      this._updateStatus('error', `Error: ${error.message}`);
+      this.onError(error);
+      throw error;
+    }
+  }
+
+  /**
    * Get current session state
    * @returns {Promise<Object>} Session state
    */
@@ -310,6 +408,7 @@ class SessionManager {
 
     this.isConnected = false;
     this.isActive = false;
+    this.isPaused = false;
     this.isStopping = false;
     this.sessionId = null;
   }
@@ -322,6 +421,7 @@ class SessionManager {
       sessionId: this.sessionId,
       isConnected: this.isConnected,
       isActive: this.isActive,
+      isPaused: this.isPaused,
       isStopping: this.isStopping
     };
   }

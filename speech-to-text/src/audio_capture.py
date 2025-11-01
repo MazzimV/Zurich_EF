@@ -189,8 +189,8 @@ class AudioCapture:
         except queue.Full:
             capture_logger.warning("Audio queue full, dropping block")
 
-        # Call user callback if provided
-        if self.callback:
+        # Call user callback if provided (only if still recording)
+        if self.callback and self.is_recording:
             try:
                 self.callback(audio_block)
             except Exception as e:

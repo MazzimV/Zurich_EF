@@ -10,8 +10,8 @@ class GraphRenderer {
     this.container = d3.select(`#${containerId}`);
 
     // Configuration
-    this.width = options.width || 1200;
-    this.height = options.height || 800;
+    this.width = options.width || 600;
+    this.height = options.height || 500;
     this.nodeRadiusScale = options.nodeRadiusScale || [5, 30];
     this.edgeWidthScale = options.edgeWidthScale || [1, 5];
 
@@ -68,8 +68,8 @@ class GraphRenderer {
       .attr('markerHeight', 8)
       .append('path')
       .attr('d', 'M 0,-5 L 10,0 L 0,5')
-      .attr('fill', '#333')  // Much darker
-      .attr('opacity', 1);  // Fully opaque
+      .attr('fill', '#3B82F6')  // Blue to match theme
+      .attr('opacity', 0.8);  // Slightly transparent for elegance
 
     // Create groups for edges and nodes (order matters for layering)
     this.linkGroup = g.append('g').attr('class', 'links');
@@ -189,7 +189,7 @@ class GraphRenderer {
     // ENTER: Add new edges
     const linkEnter = link.enter()
       .append('line')
-      .attr('stroke', '#333')  // Much darker
+      .attr('stroke', '#3B82F6')  // Blue to match theme
       .attr('stroke-opacity', 1)  // Fully opaque
       .attr('stroke-width', d => this._getEdgeWidth(d))
       .attr('marker-end', 'url(#arrowhead)')  // Add arrow marker
@@ -234,14 +234,14 @@ class GraphRenderer {
     // Add circle
     nodeEnter.append('circle')
       .attr('r', d => this._getNodeRadius(d))
-      .attr('fill', d => d.color || '#999');
+      .attr('fill', d => d.color || '#3B82F6');
 
     // Add label
     nodeEnter.append('text')
       .attr('dx', d => this._getNodeRadius(d) + 5)
       .attr('dy', '.35em')
       .attr('font-size', '12px')
-      .attr('fill', '#333')
+      .attr('fill', '#1E3A8A')
       .text(d => d.label);
 
     // Add title for hover tooltip
@@ -262,7 +262,7 @@ class GraphRenderer {
       .transition()
       .duration(500)
       .attr('r', d => this._getNodeRadius(d))
-      .attr('fill', d => d.color || '#999');
+      .attr('fill', d => d.color || '#3B82F6');
 
     this.nodeSelection.select('text')
       .transition()

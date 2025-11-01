@@ -152,54 +152,67 @@ def stream_transcription(session_id):
         last_chunk_id = -1
 
         try:
-            while session.status == 'active':
-                # Check if buffer should emit
-                if audio_buffer.should_emit():
-                    # Get audio chunk
-                    audio_bytes = audio_buffer.get_chunk()
+            # Loop while session is active or paused (keep connection open)
+            while session.status in ['active', 'paused']:
+                # Only process audio when active
+                if session.status == 'active':
+                    # Check if buffer should emit
+                    if audio_buffer.should_emit():
+                        # Get audio chunk
+                        audio_bytes = audio_buffer.get_chunk()
 
-                    if audio_bytes:
-                        try:
-                            # Transcribe
-                            app.logger.debug(f"Transcribing chunk for session {session_id}")
-                            text = transcription_service.transcribe_audio(audio_bytes)
+                        if audio_bytes:
+                            # Re-check status before transcribing (prevent race condition)
+                            if session.status != 'active':
+                                app.logger.debug(f"Skipping transcription - session {session_id} no longer active")
+                                continue
 
-                            if text and text.strip():
-                                # Add to session
-                                session_manager.add_transcript_chunk(session_id, text)
+                            try:
+                                # Transcribe
+                                app.logger.debug(f"Transcribing chunk for session {session_id}")
+                                text = transcription_service.transcribe_audio(audio_bytes)
 
-                                # Get the latest chunk
-                                latest_chunk = session.get_latest_chunk()
+                                if text and text.strip():
+                                    # Add to session
+                                    session_manager.add_transcript_chunk(session_id, text)
 
-                                if latest_chunk and latest_chunk.chunk_id > last_chunk_id:
-                                    # Emit SSE event
-                                    chunk_data = {
-                                        'chunk_id': latest_chunk.chunk_id,
-                                        'text': latest_chunk.text,
-                                        'timestamp': latest_chunk.timestamp,
-                                        'session_id': session_id,
-                                        'confidence': latest_chunk.confidence
-                                    }
+                                    # Get the latest chunk
+                                    latest_chunk = session.get_latest_chunk()
 
-                                    yield f"data: {json.dumps(chunk_data)}\n\n"
-                                    last_chunk_id = latest_chunk.chunk_id
+                                    if latest_chunk and latest_chunk.chunk_id > last_chunk_id:
+                                        # Emit SSE event
+                                        chunk_data = {
+                                            'chunk_id': latest_chunk.chunk_id,
+                                            'text': latest_chunk.text,
+                                            'timestamp': latest_chunk.timestamp,
+                                            'session_id': session_id,
+                                            'confidence': latest_chunk.confidence
+                                        }
 
-                                    app.logger.info(
-                                        f"Session {session_id}: Emitted chunk #{latest_chunk.chunk_id}"
-                                    )
+                                        yield f"data: {json.dumps(chunk_data)}\n\n"
+                                        last_chunk_id = latest_chunk.chunk_id
 
-                        except TranscriptionError as e:
-                            # Log error but continue streaming
-                            app.logger.error(f"Transcription error: {str(e)}")
-                            error_data = {
-                                'error': 'transcription_failed',
-                                'message': str(e),
-                                'timestamp': get_utc_timestamp()
-                            }
-                            yield f"data: {json.dumps(error_data)}\n\n"
+                                        app.logger.info(
+                                            f"Session {session_id}: Emitted chunk #{latest_chunk.chunk_id}"
+                                        )
 
-                # Small sleep to prevent busy-waiting
-                time.sleep(0.1)
+                            except TranscriptionError as e:
+                                # Log error but continue streaming
+                                app.logger.error(f"Transcription error: {str(e)}")
+                                error_data = {
+                                    'error': 'transcription_failed',
+                                    'message': str(e),
+                                    'timestamp': get_utc_timestamp()
+                                }
+                                yield f"data: {json.dumps(error_data)}\n\n"
+
+                    # Small sleep to prevent busy-waiting
+                    time.sleep(0.1)
+
+                elif session.status == 'paused':
+                    # When paused, just wait without processing
+                    # Keep connection alive with longer sleep
+                    time.sleep(0.5)
 
             # Session ended
             app.logger.info(f"Stream ended for session: {session_id}")
@@ -270,6 +283,113 @@ def stop_session(session_id):
 
     except Exception as e:
         app.logger.error(f"Error stopping session: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/sessions/<session_id>/pause', methods=['POST'])
+def pause_session(session_id):
+    """
+    Pause a transcription session - stops audio capture but keeps state.
+
+    Args:
+        session_id: Session identifier
+
+    Returns:
+        JSON with session status
+    """
+    if not validate_session_id(session_id):
+        return jsonify({'error': 'Invalid session ID'}), 400
+
+    with recordings_lock:
+        recording = active_recordings.get(session_id)
+
+    if not recording:
+        return jsonify({'error': 'Session not found'}), 404
+
+    try:
+        # Stop audio capture
+        recording['capture'].stop()
+        app.logger.info(f"Stopped audio capture for session: {session_id}")
+
+        # Clear audio buffer (discard any buffered audio)
+        recording['buffer'].reset()
+        app.logger.info(f"Cleared audio buffer for session: {session_id}")
+
+        # Pause the session in session manager
+        session = session_manager.pause_session(session_id)
+
+        if not session:
+            return jsonify({'error': 'Session not found'}), 404
+
+        app.logger.info(f"Paused session: {session_id}")
+
+        # Return session data
+        return jsonify({
+            'session_id': session.session_id,
+            'status': 'paused',
+            'paused_at': session.paused_at,
+            'pause_count': session.pause_count,
+            'chunk_count': session.chunk_count
+        })
+
+    except ValueError as e:
+        app.logger.warning(f"Cannot pause session {session_id}: {str(e)}")
+        return jsonify({'error': str(e)}), 400
+
+    except Exception as e:
+        app.logger.error(f"Error pausing session: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/sessions/<session_id>/resume', methods=['POST'])
+def resume_session(session_id):
+    """
+    Resume a paused transcription session - continues from current state.
+
+    Args:
+        session_id: Session identifier
+
+    Returns:
+        JSON with session status
+    """
+    if not validate_session_id(session_id):
+        return jsonify({'error': 'Invalid session ID'}), 400
+
+    with recordings_lock:
+        recording = active_recordings.get(session_id)
+
+    if not recording:
+        return jsonify({'error': 'Session not found'}), 404
+
+    try:
+        # Resume the session in session manager
+        session = session_manager.resume_session(session_id)
+
+        if not session:
+            return jsonify({'error': 'Session not found'}), 404
+
+        # Restart audio capture
+        recording['capture'].start()
+        app.logger.info(f"Restarted audio capture for session: {session_id}")
+
+        app.logger.info(f"Resumed session: {session_id}")
+
+        # Return session data
+        return jsonify({
+            'session_id': session.session_id,
+            'status': 'active',
+            'resumed_at': session.resumed_at,
+            'pause_count': session.pause_count,
+            'total_paused_duration': session.total_paused_duration,
+            'chunk_count': session.chunk_count
+        })
+
+    except ValueError as e:
+        app.logger.warning(f"Cannot resume session {session_id}: {str(e)}")
+        return jsonify({'error': str(e)}), 400
+
+    except Exception as e:
+        app.logger.error(f"Error resuming session: {str(e)}", exc_info=True)
         return jsonify({'error': 'Internal server error'}), 500
 
 
