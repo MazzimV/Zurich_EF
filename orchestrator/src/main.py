@@ -430,6 +430,7 @@ def stop_session(session_id: str):
         try:
             stt_response = requests.post(
                 f"{STT_SERVICE_URL}/sessions/{session_id}/stop",
+                json={},
                 headers={'Content-Type': 'application/json'},
                 timeout=5
             )

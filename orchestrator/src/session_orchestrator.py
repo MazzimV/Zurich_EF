@@ -251,6 +251,34 @@ class SessionOrchestrator:
                 'full_transcript_length': len(session['full_transcript'])
             }
 
+    def _save_session_to_disk_internal(self, session_id: str, session: Dict[str, Any]) -> str:
+        """
+        Internal method to save a session to disk. Assumes lock is already held.
+
+        Args:
+            session_id: Session ID to save
+            session: Session data to save
+
+        Returns:
+            str: Path to saved file
+        """
+        # Create filename with timestamp
+        timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+        filename = f"{session_id}_{timestamp}.json"
+        filepath = os.path.join(self.save_directory, filename)
+
+        # Save to disk
+        try:
+            with open(filepath, 'w') as f:
+                json.dump(session, f, indent=2, default=str)
+
+            logger.info(f"Saved session {session_id} to {filepath}")
+            return filepath
+
+        except Exception as e:
+            logger.error(f"Failed to save session {session_id}: {e}")
+            raise
+
     def save_session_to_disk(self, session_id: str) -> str:
         """
         Save a session to disk as JSON.
@@ -269,23 +297,7 @@ class SessionOrchestrator:
                 raise ValueError(f"Session {session_id} not found")
 
             session = self.sessions[session_id]
-
-            # Create filename with timestamp
-            timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
-            filename = f"{session_id}_{timestamp}.json"
-            filepath = os.path.join(self.save_directory, filename)
-
-            # Save to disk
-            try:
-                with open(filepath, 'w') as f:
-                    json.dump(session, f, indent=2, default=str)
-
-                logger.info(f"Saved session {session_id} to {filepath}")
-                return filepath
-
-            except Exception as e:
-                logger.error(f"Failed to save session {session_id}: {e}")
-                raise
+            return self._save_session_to_disk_internal(session_id, session)
 
     def stop_session(self, session_id: str) -> Dict[str, Any]:
         """
@@ -316,9 +328,9 @@ class SessionOrchestrator:
                 f"graph_version={session['graph_version']}"
             )
 
-            # Save to disk
+            # Save to disk (using internal method since we already hold the lock)
             try:
-                filepath = self.save_session_to_disk(session_id)
+                filepath = self._save_session_to_disk_internal(session_id, session)
                 saved_path = filepath
             except Exception as e:
                 logger.error(f"Failed to save session to disk: {e}")
