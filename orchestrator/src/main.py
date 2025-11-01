@@ -707,6 +707,103 @@ def delete_session(session_id: str):
         return jsonify({'error': f'Session {session_id} not found'}), 404
 
 
+@app.route('/sessions/<session_id>/expand-node', methods=['POST'])
+def expand_node(session_id: str):
+    """
+    Expand a node by generating 4 subtopic nodes.
+    
+    Only works when session is paused.
+
+    Args:
+        session_id: Session ID
+        Request body:
+        {
+            "node_id": "node-5"
+        }
+
+    Returns:
+        200: Updated graph with expanded node
+        400: Invalid request or session not paused
+        404: Session not found
+        500: Error expanding node
+    """
+    try:
+        # Check session exists
+        session = orchestrator.get_session(session_id)
+        if not session:
+            return jsonify({'error': f'Session {session_id} not found'}), 404
+
+        # Only allow expansion when paused
+        if session['status'] != 'paused':
+            return jsonify({
+                'error': 'Node expansion is only available when session is paused',
+                'current_status': session['status']
+            }), 400
+
+        # Get request data
+        data = request.json or {}
+        node_id = data.get('node_id')
+
+        if not node_id:
+            return jsonify({'error': 'node_id is required'}), 400
+
+        # Get current graph
+        current_graph = session.get('graph')
+        if not current_graph:
+            return jsonify({'error': 'No graph available for this session'}), 400
+
+        # Call graph generation service
+        try:
+            graph_response = requests.post(
+                f"{GRAPH_SERVICE_URL}/expand-node",
+                json={
+                    'session_id': session_id,
+                    'node_id': node_id,
+                    'current_graph': current_graph
+                },
+                headers={'Content-Type': 'application/json'},
+                timeout=90  # Increased timeout for LLM calls
+            )
+
+            if graph_response.status_code != 200:
+                logger.error(
+                    f"Node expansion failed: {graph_response.status_code} - "
+                    f"{graph_response.text}"
+                )
+                return jsonify({
+                    'error': 'Failed to expand node',
+                    'details': graph_response.text
+                }), 500
+
+            new_graph = graph_response.json()
+
+            # Update graph in session
+            orchestrator.update_graph(session_id, new_graph)
+
+            logger.info(f"Expanded node {node_id} for session {session_id}")
+
+            return jsonify({
+                'session_id': session_id,
+                'node_id': node_id,
+                'graph': new_graph
+            }), 200
+
+        except requests.exceptions.Timeout:
+            logger.error("Node expansion timeout")
+            return jsonify({'error': 'Node expansion timeout'}), 504
+
+        except Exception as e:
+            logger.error(f"Node expansion error: {e}", exc_info=True)
+            return jsonify({'error': str(e)}), 500
+
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+
+    except Exception as e:
+        logger.error(f"Error expanding node: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
 def print_banner():
     """Print startup banner."""
     print("\n" + "=" * 60)
@@ -726,6 +823,9 @@ def print_banner():
     print("  GET  /sessions/<id>/stream        - Stream updates (SSE)")
     print("  GET  /sessions/<id>/state         - Get session state")
     print("  POST /sessions/<id>/stop          - Stop session")
+    print("  POST /sessions/<id>/pause         - Pause session")
+    print("  POST /sessions/<id>/resume         - Resume session")
+    print("  POST /sessions/<id>/expand-node   - Expand node (paused only)")
     print("  DEL  /sessions/<id>               - Delete session")
     print("=" * 60)
     print()

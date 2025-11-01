@@ -102,13 +102,66 @@ def generate():
         return jsonify({'error': f'Internal server error: {str(e)}'}), 500
 
 
+@app.route('/expand-node', methods=['POST'])
+def expand_node():
+    """
+    Expand a node by generating 4 subtopic nodes.
+    
+    Request body:
+    {
+        "session_id": "session-123",
+        "node_id": "node-5",
+        "current_graph": { /* full graph object */ }
+    }
+    
+    Returns:
+    {
+        "session_id": "session-123",
+        "version": 3
+        "nodes": [...],  // includes 4 new subtopic nodes
+        "edges": [...],  // includes 4 new edges to subtopics
+    }
+    """
+    try:
+        data = request.json
+        
+        if not data:
+            return jsonify({'error': 'Request body is required'}), 400
+        
+        node_id = data.get('node_id')
+        current_graph = data.get('current_graph')
+        session_id = data.get('session_id')
+        
+        if not node_id:
+            return jsonify({'error': 'node_id is required'}), 400
+        
+        if not current_graph:
+            return jsonify({'error': 'current_graph is required'}), 400
+        
+        # Expand the node
+        graph = generator.expand_node(
+            node_id=node_id,
+            current_graph=current_graph,
+            session_id=session_id
+        )
+        
+        return jsonify(graph), 200
+        
+    except ValueError as e:
+        return jsonify({'error': f'Invalid request: {str(e)}'}), 400
+    except GraphValidationError as e:
+        return jsonify({'error': f'Graph validation failed: {str(e)}'}), 400
+    except Exception as e:
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+
+
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 8002))
     debug = os.getenv('DEBUG', 'false').lower() == 'true'
     
     print(f"Starting Graph Generation API server on port {port}")
     print(f"Debug mode: {debug}")
-    print(f"Environment: {os.getenv('LLM_MODEL', 'claude-sonnet-4-5-20250929')}")
+    print(f"Environment: {os.getenv('LLM_MODEL', 'claude-haiku-4-5-20251001')}")
     
     app.run(host='0.0.0.0', port=port, debug=debug)
 

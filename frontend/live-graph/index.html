@@ -128,7 +128,7 @@
       graphRenderer = new GraphRenderer('graph-canvas', {
         width: size.width,
         height: size.height,
-        nodeRadiusScale: [8, 35],
+        nodeRadiusScale: [5, 80],  // Very pronounced size difference - low importance = tiny, high = large
         edgeWidthScale: [2, 6]
       });
 
@@ -662,6 +662,10 @@
         const sessionData = await sessionManager.startSession();
         console.log('✅ Session started, data received:', sessionData);
 
+        // Set up node click handler for expansion (disabled initially - only works when paused)
+        graphRenderer.setOnNodeClick(handleNodeClick);
+        graphRenderer.setPaused(false); // Not paused initially
+
         // Update UI
         const sessionDisplay = document.getElementById('session-id-display');
         if (sessionDisplay) {
@@ -704,7 +708,10 @@
         document.getElementById('resume-live-session').disabled = false;
         document.getElementById('resume-live-session').style.display = 'inline-block';
 
-        updateLiveStatus('Session paused - not capturing audio', false);
+        // Enable node clicking when paused
+        graphRenderer.setPaused(true);
+
+        updateLiveStatus('Session paused - click nodes to expand', false);
 
       } catch (error) {
         console.error('Failed to pause session:', error);
@@ -732,6 +739,9 @@
         document.getElementById('resume-live-session').style.display = 'none';
         document.getElementById('pause-live-session').disabled = false;
         document.getElementById('pause-live-session').style.display = 'inline-block';
+
+        // Disable node clicking when active
+        graphRenderer.setPaused(false);
 
         updateLiveStatus('Session active - capturing audio', true);
 
@@ -806,6 +816,68 @@
         document.getElementById('stop-live-session').disabled = true;
 
         alert(`Failed to stop session:\n${error.message}`);
+      }
+    }
+
+    /**
+     * Handle node click for expansion (only when paused)
+     */
+    async function handleNodeClick(node) {
+      if (!sessionManager || !sessionManager.sessionId) {
+        console.warn('No active session');
+        return;
+      }
+
+      // Double-check session is paused
+      const status = sessionManager.getStatus();
+      if (!status.isPaused) {
+        console.warn('Session is not paused - node expansion only works when paused');
+        alert('Node expansion is only available when the session is paused.');
+        return;
+      }
+
+      try {
+        console.log(`🔍 Expanding node: ${node.id} - ${node.label}`);
+        
+        // Show loading indicator
+        const originalLabel = node.label;
+        updateLiveStatus(`Expanding "${originalLabel}"...`, false);
+
+        // Call orchestrator API to expand node
+        const url = getOrchestratorUrl();
+        const response = await fetch(`${url}/sessions/${sessionManager.sessionId}/expand-node`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            node_id: node.id
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Failed to expand node: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('✅ Node expanded:', data);
+
+        // Update graph with expanded version
+        if (data.graph) {
+          const oldNodeCount = graphRenderer.nodes.length;
+          graphRenderer.updateGraph(data.graph);
+          updateGraphInfo(data.graph);
+          
+          // Count new nodes (should be exactly 4)
+          const newNodesCount = data.graph.nodes.length - oldNodeCount;
+          updateLiveStatus(`Expanded "${originalLabel}" with ${newNodesCount} new subtopics`, false);
+        }
+
+      } catch (error) {
+        console.error('❌ Failed to expand node:', error);
+        updateLiveStatus(`Error expanding node: ${error.message}`, false);
+        alert(`Failed to expand node:\n${error.message}`);
       }
     }
 

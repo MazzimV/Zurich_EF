@@ -41,6 +41,29 @@ active_recordings = {}
 recordings_lock = threading.Lock()
 
 
+@app.route('/', methods=['GET'])
+def index():
+    """Root endpoint - lists available API endpoints."""
+    return jsonify({
+        'service': 'speech-to-text',
+        'version': '1.0',
+        'status': 'running',
+        'endpoints': {
+            'health': 'GET /health',
+            'start_session': 'POST /sessions/start',
+            'stream_transcription': 'GET /sessions/<session_id>/stream',
+            'stop_session': 'POST /sessions/<session_id>/stop',
+            'pause_session': 'POST /sessions/<session_id>/pause',
+            'resume_session': 'POST /sessions/<session_id>/resume',
+            'get_session': 'GET /sessions/<session_id>',
+            'list_sessions': 'GET /sessions',
+            'upload_transcribe': 'POST /transcribe/upload',
+            'stats': 'GET /stats'
+        },
+        'documentation': 'See README.md or INTEGRATION.md for full API documentation'
+    }), 200
+
+
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint."""
