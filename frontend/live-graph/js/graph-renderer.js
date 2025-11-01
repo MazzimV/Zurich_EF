@@ -26,6 +26,10 @@ class GraphRenderer {
     this.linkGroup = null;
     this.nodeGroup = null;
 
+    // Node expansion
+    this.isPaused = false;
+    this.onNodeClick = options.onNodeClick || null;
+
     // Initialize
     this._initSVG();
     this._initSimulation();
@@ -229,7 +233,9 @@ class GraphRenderer {
       .append('g')
       .attr('class', 'node')
       .style('opacity', 0)
-      .call(this._addDragBehavior());
+      .style('cursor', d => this.isPaused ? 'pointer' : 'default')
+      .call(this._addDragBehavior())
+      .call(this._addClickBehavior());
 
     // Add circle
     nodeEnter.append('circle')
@@ -258,6 +264,10 @@ class GraphRenderer {
     this.nodeSelection = nodeEnter.merge(node);
 
     // Update node properties with transition
+    this.nodeSelection
+      .style('cursor', d => this.isPaused ? 'pointer' : 'default')
+      .call(this._addClickBehavior());
+
     this.nodeSelection.select('circle')
       .transition()
       .duration(500)
@@ -271,7 +281,7 @@ class GraphRenderer {
       .text(d => d.label);
 
     this.nodeSelection.select('title')
-      .text(d => `${d.label}\nType: ${d.type}\nImportance: ${d.importance?.toFixed(2) || 'N/A'}`);
+      .text(d => `${d.label}\nType: ${d.type}\nImportance: ${d.importance?.toFixed(2) || 'N/A'}${this.isPaused ? '\n(Click to expand)' : ''}`);
   }
 
   /**
@@ -333,6 +343,45 @@ class GraphRenderer {
       .on('start', dragStarted)
       .on('drag', dragged)
       .on('end', dragEnded);
+  }
+
+  /**
+   * Add click behavior to nodes (only when paused)
+   */
+  _addClickBehavior() {
+    return selection => {
+      selection.on('click', (event, d) => {
+        // Only handle clicks when paused and callback is set
+        if (this.isPaused && this.onNodeClick) {
+          event.stopPropagation();
+          console.log(`Node clicked: ${d.id} - ${d.label}`);
+          this.onNodeClick(d);
+        }
+      });
+    };
+  }
+
+  /**
+   * Set pause state (enables/disables node clicking)
+   */
+  setPaused(isPaused) {
+    this.isPaused = isPaused;
+    
+    // Update cursor and tooltip on existing nodes
+    if (this.nodeSelection) {
+      this.nodeSelection
+        .style('cursor', d => this.isPaused ? 'pointer' : 'default');
+      
+      this.nodeSelection.select('title')
+        .text(d => `${d.label}\nType: ${d.type}\nImportance: ${d.importance?.toFixed(2) || 'N/A'}${this.isPaused ? '\n(Click to expand)' : ''}`);
+    }
+  }
+
+  /**
+   * Set callback for node clicks
+   */
+  setOnNodeClick(callback) {
+    this.onNodeClick = callback;
   }
 
   /**
