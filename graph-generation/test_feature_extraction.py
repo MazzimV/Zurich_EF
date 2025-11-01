@@ -3,7 +3,11 @@ Test script for feature extraction module
 """
 
 import json
+import os
 from feature_extractor import FeatureExtractor, extract_features
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def test_basic_extraction():
     """Test basic feature extraction"""
@@ -63,6 +67,58 @@ def test_basic_extraction():
         print(f"  - {phrase}")
     
     return features
+
+
+def test_llm_filtering():
+    """Test LLM filtering of key phrases"""
+    print("\n\n")
+    print("=" * 60)
+    print("Testing LLM Key Phrase Filtering")
+    print("=" * 60)
+    
+    test_text = """
+    Okay, so let's talk about the mobile app redesign. I think we really need to focus on user experience, 
+    especially for first-time users. The onboarding flow is confusing right now. 
+    
+    What do you think about using React Native? We should test it on iPhone and Android devices. 
+    We decided to go with a modern design system. Let's schedule a meeting with the design team next week.
+    """
+    
+    # Test without LLM filter (baseline)
+    print("\n--- WITHOUT LLM FILTER (Baseline) ---")
+    extractor_no_filter = FeatureExtractor(use_llm_filter=False)
+    features_no_filter = extractor_no_filter.extract(test_text)
+    print(f"Key phrases ({len(features_no_filter.key_phrases)}):")
+    for phrase in features_no_filter.key_phrases:
+        print(f"  - {phrase}")
+    
+    # Test with LLM filter
+    print("\n--- WITH LLM FILTER (Filtered) ---")
+    api_key = os.getenv('ANTHROPIC_API_KEY')
+    if not api_key:
+        print("⚠ ANTHROPIC_API_KEY not found. Cannot test LLM filtering.")
+        print("   Set your API key in .env file or environment variable.")
+        return None
+    
+    extractor_with_filter = FeatureExtractor(use_llm_filter=True, anthropic_api_key=api_key)
+    features_with_filter = extractor_with_filter.extract(test_text)
+    print(f"Key phrases ({len(features_with_filter.key_phrases)}):")
+    for phrase in features_with_filter.key_phrases:
+        print(f"  ✓ {phrase}")
+    
+    # Show comparison
+    print(f"\n--- COMPARISON ---")
+    print(f"Before filtering: {len(features_no_filter.key_phrases)} phrases")
+    print(f"After filtering:  {len(features_with_filter.key_phrases)} phrases")
+    print(f"Removed:          {len(features_no_filter.key_phrases) - len(features_with_filter.key_phrases)} phrases")
+    
+    removed = set(features_no_filter.key_phrases) - set(features_with_filter.key_phrases)
+    if removed:
+        print(f"\nFiltered out:")
+        for phrase in removed:
+            print(f"  ✗ {phrase}")
+    
+    return features_with_filter
 
 
 def test_with_sample_transcript():
@@ -130,6 +186,9 @@ if __name__ == "__main__":
     try:
         # Basic extraction test
         features1 = test_basic_extraction()
+        
+        # Test LLM filtering
+        features_filtered = test_llm_filtering()
         
         # Test with sample transcript
         features2 = test_with_sample_transcript()
