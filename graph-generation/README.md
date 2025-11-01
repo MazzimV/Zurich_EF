@@ -70,8 +70,9 @@ Create a `.env` file:
 
 # Anthropic Claude
 ANTHROPIC_API_KEY=your-claude-api-key
-LLM_MODEL=claude-3-5-haiku-20241022  # Fast and cheap (default)
-# LLM_MODEL=claude-3-5-sonnet-20241022  # Better quality, slower
+LLM_MODEL=claude-sonnet-4-5-20250929  # Claude Sonnet 4.5 - best balance (default, recommended)
+# LLM_MODEL=claude-haiku-4-5-20251001  # Claude Haiku 4.5 - faster/cheaper
+# LLM_MODEL=claude-opus-4-1-20250805  # Claude Opus 4.1 - most advanced
 
 # Server config
 PORT=8002

@@ -21,6 +21,15 @@ Your job: Generate a complete, updated knowledge graph as JSON.
 - If new text discusses something similar to an existing node, update that node instead of creating a duplicate
 - Example: "mobile UX" and "responsive design" might be the same node with updated label
 
+### 2a. Label Refinement (CRITICAL)
+- When a similar concept appears that is **more specific** than an existing node label, **update the label** to the more specific version
+- Keep the same node ID, but refine the label to better reflect the conversation's focus
+- Examples:
+  - Existing: "budget management" → New text mentions "budget expenses" → Update label to "budget expenses" (more specific)
+  - Existing: "user interface" → New text mentions "mobile user interface" → Update label to "mobile user interface" (more specific)
+  - Existing: "testing" → New text mentions "automated testing" → Update label to "automated testing" (more specific)
+- **Decision criteria**: Ask yourself: Is the new phrase a more specific or narrower version of the existing concept? If yes, update the label. If it's a different concept entirely, create a new node.
+
 ### 3. Update Importance
 - Increase `importance` for nodes that are mentioned repeatedly
 - Decrease `importance` for nodes that haven't been mentioned in a while (optional)
@@ -107,7 +116,9 @@ Or create your own semantic groupings with custom colors.
 
 ## Example
 
-### Input
+### Example 1: Basic Update
+
+#### Input
 ```json
 {
   "previous_graph": {
@@ -219,6 +230,95 @@ Or create your own semantic groupings with custom colors.
   }
 }
 ```
+
+### Example 2: Label Refinement
+
+#### Input
+```json
+{
+  "previous_graph": {
+    "nodes": [
+      {
+        "id": "node-1",
+        "label": "budget management",
+        "type": "topic",
+        "importance": 0.6,
+        "color": "#8B5CF6",
+        "created_at": "2025-11-01T10:00:00Z",
+        "updated_at": "2025-11-01T10:00:00Z",
+        "metadata": {"tags": ["budget"], "mentions_count": 1}
+      }
+    ],
+    "edges": [],
+    "metadata": {
+      "summary": "Discussion about budget management",
+      "main_themes": ["budget"]
+    }
+  },
+  "new_text": "We really need to track our budget expenses more carefully. The monthly recurring costs are getting out of hand, especially subscription services."
+}
+```
+
+#### Expected Output
+```json
+{
+  "nodes": [
+    {
+      "id": "node-1",
+      "label": "budget expenses",
+      "type": "topic",
+      "description": "Focus on tracking budget expenses, especially monthly recurring costs and subscriptions",
+      "importance": 0.75,
+      "confidence": 0.9,
+      "color": "#8B5CF6",
+      "created_at": "2025-11-01T10:00:00Z",
+      "updated_at": "2025-11-01T10:05:00Z",
+      "metadata": {
+        "tags": ["budget", "expenses", "tracking"],
+        "mentions_count": 2
+      }
+    },
+    {
+      "id": "node-2",
+      "label": "monthly recurring costs",
+      "type": "concept",
+      "description": "Subscription services and recurring monthly expenses",
+      "importance": 0.65,
+      "confidence": 0.85,
+      "color": "#3B82F6",
+      "created_at": "2025-11-01T10:05:00Z",
+      "updated_at": "2025-11-01T10:05:00Z",
+      "metadata": {
+        "tags": ["recurring", "subscriptions"],
+        "mentions_count": 1
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-1",
+      "source": "node-2",
+      "target": "node-1",
+      "type": "elaborates",
+      "label": "example of",
+      "strength": 0.8,
+      "confidence": 0.9,
+      "created_at": "2025-11-01T10:05:00Z",
+      "metadata": {
+        "reason": "Monthly recurring costs are a specific type of budget expense"
+      }
+    }
+  ],
+  "metadata": {
+    "summary": "Discussion focused on tracking budget expenses, particularly monthly recurring costs",
+    "main_themes": ["budget expenses", "tracking", "recurring costs"],
+    "graph_complexity": 0.2,
+    "layout_hint": "force"
+  }
+}
+```
+
+**Note**: The label changed from "budget management" to "budget expenses" because the conversation became more specific. The node ID "node-1" remained the same, maintaining ID stability.
 
 ## Instructions
 
