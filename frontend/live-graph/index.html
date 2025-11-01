@@ -19,7 +19,6 @@
             <button class="btn-warning" id="pause-live-session" disabled>pause session</button>
             <button class="btn-success" id="resume-live-session" disabled style="display: none;">resume session</button>
             <button class="btn-danger" id="stop-live-session" disabled>stop session</button>
-            <button class="btn-secondary" id="get-session-state" disabled>get state</button>
           </div>
           <div class="status-indicator" style="margin-left: 12px;">
             <span class="status-dot" id="live-status-dot"></span>
@@ -322,7 +321,6 @@
       const pauseBtn = document.getElementById('pause-live-session');
       const resumeBtn = document.getElementById('resume-live-session');
       const stopBtn = document.getElementById('stop-live-session');
-      const getStateBtn = document.getElementById('get-session-state');
 
       if (startBtn) {
         console.log('✅ Setting up start-live-session listener', startBtn);
@@ -368,15 +366,6 @@
           e.preventDefault();
           if (typeof stopLiveSession === 'function') {
             stopLiveSession();
-          }
-        });
-      }
-
-      if (getStateBtn) {
-        getStateBtn.addEventListener('click', function(e) {
-          e.preventDefault();
-          if (typeof getSessionState === 'function') {
-            getSessionState();
           }
         });
       }
@@ -511,7 +500,6 @@
         document.getElementById('resume-live-session').disabled = true;
         document.getElementById('resume-live-session').style.display = 'none';
         document.getElementById('stop-live-session').disabled = false;
-        document.getElementById('get-session-state').disabled = false;
 
         console.log('✅ Live session started:', sessionData);
 
@@ -594,7 +582,6 @@
         document.getElementById('pause-live-session').disabled = true;
         document.getElementById('resume-live-session').disabled = true;
         document.getElementById('stop-live-session').disabled = true;
-        document.getElementById('get-session-state').disabled = true;
 
         console.log('🛑 Stop requested - entering grace period for final updates...');
 
@@ -615,7 +602,6 @@
         document.getElementById('resume-live-session').disabled = true;
         document.getElementById('resume-live-session').style.display = 'none';
         document.getElementById('stop-live-session').disabled = true;
-        document.getElementById('get-session-state').disabled = true;
 
         updateLiveStatus('session stopped', false);
 
