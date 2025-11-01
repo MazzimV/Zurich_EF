@@ -41,6 +41,7 @@ This service coordinates the flow between:
 ✅ **Unified API** - Single endpoint for transcript + graph stream
 ✅ **Session Management** - Handles multiple concurrent sessions
 ✅ **State Storage** - Maintains graph history and full transcript
+✅ **Auto-Save to Disk** - Sessions automatically saved when stopped
 ✅ **Error Handling** - Graceful fallbacks if services fail
 ✅ **Health Monitoring** - Checks dependencies automatically
 ✅ **SSE Streaming** - Real-time updates via Server-Sent Events
@@ -284,6 +285,7 @@ Content-Type: application/json
   "session_id": "session-abc123",
   "status": "stopped",
   "stopped_at": "2025-11-01T16:05:00Z",
+  "saved_to": "./sessions/session-abc123_20251101_160500.json",
   "summary": {
     "chunk_count": 10,
     "graph_version": 10,
@@ -397,8 +399,92 @@ DEBUG=false
 # Max concurrent sessions
 MAX_SESSIONS=10
 
+# Directory to save sessions (default: ./sessions)
+SAVE_DIRECTORY=./sessions
+
 # Logging level
 LOG_LEVEL=INFO
+```
+
+## Session Persistence
+
+Sessions are **automatically saved to disk** when stopped!
+
+### Where Sessions Are Saved
+
+By default, sessions are saved to `./sessions/` directory with this format:
+```
+sessions/
+├── session-abc123_20251101_162543.json
+├── session-def456_20251101_163012.json
+└── session-xyz789_20251101_164521.json
+```
+
+Each file contains:
+- Complete graph (all nodes and edges)
+- Full transcript (all chunks concatenated)
+- All metadata (timestamps, versions, etc.)
+- Session statistics
+
+### File Format
+
+```json
+{
+  "session_id": "session-abc123",
+  "status": "stopped",
+  "created_at": "2025-11-01T16:25:00Z",
+  "started_at": "2025-11-01T16:25:01Z",
+  "stopped_at": "2025-11-01T16:30:45Z",
+  "graph": {
+    "nodes": [...],
+    "edges": [...],
+    "version": 10
+  },
+  "transcript_chunks": [...],
+  "full_transcript": "Complete transcript text...",
+  "chunk_count": 10,
+  "graph_version": 10,
+  "metadata": {
+    "total_graph_updates": 10,
+    "last_update_at": "2025-11-01T16:30:45Z"
+  }
+}
+```
+
+### When Sessions Are Saved
+
+✅ Automatically when you call `/sessions/{id}/stop`
+✅ Includes complete graph state
+✅ Includes full transcript
+✅ Timestamped filename for easy tracking
+
+### Accessing Saved Sessions
+
+```bash
+# List all saved sessions
+ls -lh sessions/
+
+# View a session
+cat sessions/session-abc123_20251101_162543.json | jq
+
+# Extract just the graph
+jq '.graph' sessions/session-abc123_20251101_162543.json
+
+# Extract just the transcript
+jq '.full_transcript' sessions/session-abc123_20251101_162543.json
+```
+
+### Custom Save Location
+
+Change the save directory in `.env`:
+```env
+SAVE_DIRECTORY=/path/to/your/sessions
+```
+
+Or set environment variable:
+```bash
+export SAVE_DIRECTORY="/path/to/your/sessions"
+python src/main.py
 ```
 
 ## Architecture Decisions

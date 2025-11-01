@@ -8,6 +8,8 @@ Handles state, coordinates API calls, and streams unified output.
 import logging
 import time
 import uuid
+import os
+import json
 from typing import Dict, Optional, Any
 from datetime import datetime
 import threading
@@ -27,18 +29,23 @@ class SessionOrchestrator:
     - Provide unified data stream
     """
 
-    def __init__(self, max_sessions: int = 10):
+    def __init__(self, max_sessions: int = 10, save_directory: str = "./sessions"):
         """
         Initialize the orchestrator.
 
         Args:
             max_sessions: Maximum number of concurrent sessions
+            save_directory: Directory to save session files (default: ./sessions)
         """
         self.sessions: Dict[str, Dict[str, Any]] = {}
         self.max_sessions = max_sessions
         self.lock = threading.Lock()
+        self.save_directory = save_directory
 
-        logger.info(f"SessionOrchestrator initialized: max_sessions={max_sessions}")
+        # Create save directory if it doesn't exist
+        os.makedirs(save_directory, exist_ok=True)
+
+        logger.info(f"SessionOrchestrator initialized: max_sessions={max_sessions}, save_dir={save_directory}")
 
     def create_session(self, session_id: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -244,9 +251,45 @@ class SessionOrchestrator:
                 'full_transcript_length': len(session['full_transcript'])
             }
 
+    def save_session_to_disk(self, session_id: str) -> str:
+        """
+        Save a session to disk as JSON.
+
+        Args:
+            session_id: Session ID to save
+
+        Returns:
+            str: Path to saved file
+
+        Raises:
+            ValueError: If session doesn't exist
+        """
+        with self.lock:
+            if session_id not in self.sessions:
+                raise ValueError(f"Session {session_id} not found")
+
+            session = self.sessions[session_id]
+
+            # Create filename with timestamp
+            timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+            filename = f"{session_id}_{timestamp}.json"
+            filepath = os.path.join(self.save_directory, filename)
+
+            # Save to disk
+            try:
+                with open(filepath, 'w') as f:
+                    json.dump(session, f, indent=2, default=str)
+
+                logger.info(f"Saved session {session_id} to {filepath}")
+                return filepath
+
+            except Exception as e:
+                logger.error(f"Failed to save session {session_id}: {e}")
+                raise
+
     def stop_session(self, session_id: str) -> Dict[str, Any]:
         """
-        Stop a session.
+        Stop a session and save it to disk.
 
         Args:
             session_id: Session ID to stop
@@ -273,10 +316,19 @@ class SessionOrchestrator:
                 f"graph_version={session['graph_version']}"
             )
 
+            # Save to disk
+            try:
+                filepath = self.save_session_to_disk(session_id)
+                saved_path = filepath
+            except Exception as e:
+                logger.error(f"Failed to save session to disk: {e}")
+                saved_path = None
+
             return {
                 'session_id': session_id,
                 'status': 'stopped',
                 'stopped_at': now,
+                'saved_to': saved_path,
                 'summary': {
                     'chunk_count': session['chunk_count'],
                     'graph_version': session['graph_version'],

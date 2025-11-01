@@ -120,6 +120,7 @@ def test_start_session():
     try:
         response = requests.post(
             f"{ORCHESTRATOR_URL}/sessions/start",
+            json={},
             headers={'Content-Type': 'application/json'},
             timeout=10
         )

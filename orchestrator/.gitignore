@@ -21,6 +21,10 @@ ENV/
 # Logs
 *.log
 
+# Session data
+sessions/
+*.json
+
 # OS
 .DS_Store
 Thumbs.db

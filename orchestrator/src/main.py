@@ -40,9 +40,10 @@ GRAPH_SERVICE_URL = os.getenv('GRAPH_SERVICE_URL', 'http://localhost:8002')
 PORT = int(os.getenv('PORT', 8003))
 DEBUG = os.getenv('DEBUG', 'false').lower() == 'true'
 MAX_SESSIONS = int(os.getenv('MAX_SESSIONS', 10))
+SAVE_DIRECTORY = os.getenv('SAVE_DIRECTORY', './sessions')
 
 # Initialize orchestrator
-orchestrator = SessionOrchestrator(max_sessions=MAX_SESSIONS)
+orchestrator = SessionOrchestrator(max_sessions=MAX_SESSIONS, save_directory=SAVE_DIRECTORY)
 
 # Service health status cache
 _service_health_cache = {
