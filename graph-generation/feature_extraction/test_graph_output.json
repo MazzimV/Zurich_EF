@@ -1,0 +1,134 @@
+{
+  "nodes": [
+    {
+      "id": "node-1",
+      "label": "Mobile App Redesign",
+      "type": "topic",
+      "description": "Comprehensive redesign of the mobile application",
+      "importance": 0.9,
+      "confidence": 0.9,
+      "color": "#8B5CF6",
+      "created_at": "2025-11-01T10:10:00Z",
+      "updated_at": "2025-11-01T10:10:00Z",
+      "metadata": {
+        "tags": [
+          "mobile",
+          "redesign",
+          "project"
+        ],
+        "mentions_count": 1
+      }
+    },
+    {
+      "id": "node-2",
+      "label": "User Experience",
+      "type": "concept",
+      "description": "Focus on improving overall user interaction and satisfaction",
+      "importance": 0.85,
+      "confidence": 0.95,
+      "color": "#3B82F6",
+      "created_at": "2025-11-01T10:10:00Z",
+      "updated_at": "2025-11-01T10:10:00Z",
+      "metadata": {
+        "tags": [
+          "UX",
+          "priority"
+        ],
+        "mentions_count": 1
+      }
+    },
+    {
+      "id": "node-3",
+      "label": "Onboarding Flow",
+      "type": "topic",
+      "description": "User's initial experience and navigation through the app",
+      "importance": 0.75,
+      "confidence": 0.8,
+      "color": "#60A5FA",
+      "created_at": "2025-11-01T10:10:00Z",
+      "updated_at": "2025-11-01T10:10:00Z",
+      "metadata": {
+        "tags": [
+          "user-flow",
+          "first-time-users"
+        ],
+        "mentions_count": 1
+      }
+    },
+    {
+      "id": "node-4",
+      "label": "First-Time Users",
+      "type": "concept",
+      "description": "New users experiencing the app for the first time",
+      "importance": 0.7,
+      "confidence": 0.85,
+      "color": "#3B82F6",
+      "created_at": "2025-11-01T10:10:00Z",
+      "updated_at": "2025-11-01T10:10:00Z",
+      "metadata": {
+        "tags": [
+          "user-segment",
+          "onboarding"
+        ],
+        "mentions_count": 1
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-1",
+      "source": "node-1",
+      "target": "node-2",
+      "type": "supports",
+      "label": "improves",
+      "strength": 0.9,
+      "confidence": 0.95,
+      "created_at": "2025-11-01T10:10:00Z",
+      "metadata": {
+        "reason": "Redesign aims to enhance user experience"
+      }
+    },
+    {
+      "id": "edge-2",
+      "source": "node-2",
+      "target": "node-3",
+      "type": "relates_to",
+      "label": "focuses on",
+      "strength": 0.85,
+      "confidence": 0.9,
+      "created_at": "2025-11-01T10:10:00Z",
+      "metadata": {
+        "reason": "User experience directly involves the onboarding flow"
+      }
+    },
+    {
+      "id": "edge-3",
+      "source": "node-3",
+      "target": "node-4",
+      "type": "supports",
+      "label": "targets",
+      "strength": 0.8,
+      "confidence": 0.85,
+      "created_at": "2025-11-01T10:10:00Z",
+      "metadata": {
+        "reason": "Onboarding flow is specifically designed for first-time users"
+      }
+    }
+  ],
+  "metadata": {
+    "summary": "Discussion about mobile app redesign with a focus on improving user experience and onboarding for first-time users",
+    "main_themes": [
+      "UX",
+      "mobile",
+      "redesign",
+      "onboarding"
+    ],
+    "graph_complexity": 0.4,
+    "layout_hint": "force",
+    "generation_timestamp": "2025-11-01T14:47:35.614536Z",
+    "llm_model": "claude-3-5-haiku-20241022",
+    "session_id": "demo-session-123",
+    "timestamp": "2025-11-01T10:30:00Z",
+    "chunk_id": 1
+  }
+}

@@ -1,94 +1,20 @@
 """
-Feature Extraction Module
+Knowledge Graph Generation Module
 
-This module extracts structured features from transcript text using LLM before semantic clustering/graph generation.
-It uses an LLM to identify entities, key phrases, concepts, questions, actions, and decisions.
+This module generates knowledge graphs from transcript text using LLM.
+It uses the system prompt to generate complete graph structures directly.
 """
 
 import re
 import os
 import json
-from typing import Dict, List, Optional
-from dataclasses import dataclass, asdict
+from typing import Dict, Optional
+from pathlib import Path
 from datetime import datetime
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
-
-
-@dataclass
-class ExtractedEntity:
-    """Represents a named entity extracted from text"""
-    text: str
-    label: str  # PERSON, ORGANIZATION, PRODUCT, LOCATION, etc.
-    start_char: int
-    end_char: int
-    confidence: float = 0.8
-
-
-@dataclass
-class ExtractedConcept:
-    """Represents a key concept or phrase"""
-    text: str
-    importance_score: float  # 0-1
-    frequency: int = 1
-    positions: List[int] = None
-
-
-@dataclass
-class ExtractedQuestion:
-    """Represents a question identified in the text"""
-    text: str
-    question_type: str  # "what", "how", "why", "when", "where", "who", "which", "yes_no"
-    start_char: int
-    end_char: int
-
-
-@dataclass
-class ExtractedAction:
-    """Represents an action item or task"""
-    text: str
-    action_verb: str
-    confidence: float
-    start_char: int
-    end_char: int
-
-
-@dataclass
-class ExtractedDecision:
-    """Represents a decision or commitment"""
-    text: str
-    decision_type: str  # "choice", "commitment", "plan"
-    confidence: float
-    start_char: int
-    end_char: int
-
-
-@dataclass
-class ExtractedFeatures:
-    """Complete feature extraction output"""
-    entities: List[ExtractedEntity]
-    concepts: List[ExtractedConcept]
-    questions: List[ExtractedQuestion]
-    actions: List[ExtractedAction]
-    decisions: List[ExtractedDecision]
-    key_phrases: List[str]
-    sentences: List[str]
-    metadata: Dict
-    
-    def to_dict(self) -> Dict:
-        """Convert to dictionary for JSON serialization"""
-        return {
-            'entities': [asdict(e) for e in self.entities],
-            'concepts': [asdict(c) for c in self.concepts],
-            'questions': [asdict(q) for q in self.questions],
-            'actions': [asdict(a) for a in self.actions],
-            'decisions': [asdict(d) for d in self.decisions],
-            'key_phrases': self.key_phrases,
-            'sentences': self.sentences,
-            'metadata': self.metadata
-        }
 
 
 def _extract_json_from_response(response_text: str) -> str:
@@ -107,30 +33,33 @@ def _extract_json_from_response(response_text: str) -> str:
     return response_text.strip()
 
 
-def _split_into_sentences(text: str) -> List[str]:
-    """Simple sentence splitting using regex"""
-    # Split on sentence-ending punctuation
-    sentences = re.split(r'[.!?]+', text)
-    # Clean up and filter empty strings
-    sentences = [s.strip() for s in sentences if s.strip()]
-    return sentences
+def _load_system_prompt() -> str:
+    """Load the system prompt template from prompts/system-prompt.md"""
+    # Get the directory of this file
+    current_dir = Path(__file__).parent
+    # Go up one level to graph-generation, then into prompts
+    prompt_path = current_dir.parent / "prompts" / "system-prompt.md"
+    
+    if not prompt_path.exists():
+        raise FileNotFoundError(f"System prompt not found at {prompt_path}")
+    
+    with open(prompt_path, 'r', encoding='utf-8') as f:
+        return f.read()
 
 
 class FeatureExtractor:
     """
-    Extracts structured features from transcript text using LLM.
+    Generates knowledge graphs from transcript text using LLM.
     
-    This is step 1 of the graph generation pipeline:
-    1. Feature Extraction (this module) - Extract entities, concepts, patterns using LLM
-    2. Semantic Clustering - Group related features
-    3. Graph Generation - Create graph structure from clustered features
+    Uses the system prompt template to generate complete graph structures
+    with nodes, edges, and metadata directly from transcript chunks.
     """
     
     def __init__(self, 
                  llm_model: str = "claude-3-5-haiku-20241022",
                  anthropic_api_key: Optional[str] = None):
         """
-        Initialize the feature extractor.
+        Initialize the graph generator.
         
         Args:
             llm_model: Claude model name (default: "claude-3-5-haiku-20241022")
@@ -152,84 +81,34 @@ class FeatureExtractor:
             raise ImportError("anthropic package not installed. Install with: pip install anthropic")
         except Exception as e:
             raise ValueError(f"Failed to initialize Anthropic client: {e}")
+        
+        # Load system prompt template
+        self.system_prompt_template = _load_system_prompt()
     
-    def _create_extraction_prompt(self, text: str) -> str:
-        """Create prompt for LLM to extract features"""
-        prompt = f"""Analyze the following transcript text and extract structured features. Return ONLY valid JSON, no explanations.
-
-Text to analyze:
----
-{text}
----
-
-Extract the following features and return as JSON:
-
-{{
-  "entities": [
-    {{
-      "text": "entity text",
-      "label": "PERSON|ORGANIZATION|PRODUCT|LOCATION|TECHNOLOGY|EVENT|OTHER",
-      "start_char": 0,
-      "end_char": 10,
-      "confidence": 0.9
-    }}
-  ],
-  "concepts": [
-    {{
-      "text": "key concept or phrase",
-      "importance_score": 0.8,
-      "frequency": 1,
-      "positions": [0]
-    }}
-  ],
-  "questions": [
-    {{
-      "text": "question text",
-      "question_type": "what|how|why|when|where|who|which|yes_no",
-      "start_char": 0,
-      "end_char": 20
-    }}
-  ],
-  "actions": [
-    {{
-      "text": "action item sentence",
-      "action_verb": "main verb",
-      "confidence": 0.8,
-      "start_char": 0,
-      "end_char": 30
-    }}
-  ],
-  "decisions": [
-    {{
-      "text": "decision statement",
-      "decision_type": "choice|commitment|plan",
-      "confidence": 0.8,
-      "start_char": 0,
-      "end_char": 25
-    }}
-  ],
-  "key_phrases": ["phrase1", "phrase2", "phrase3"]
-}}
-
-Guidelines:
-- Extract named entities: people, organizations, products, technologies, locations
-- Extract important concepts and topics (noun phrases, key terms)
-- Identify all questions (sentences ending with "?" or starting with question words)
-- Identify action items (tasks, to-dos, things to do)
-- Identify decisions (choices made, commitments, plans)
-- For key_phrases, extract 5-15 most important phrases
-- Use character positions (start_char, end_char) to locate text in the original
-- Set importance_score for concepts (0.0-1.0), higher for more important/repeated concepts
-- Set confidence scores (0.0-1.0) for entities, actions, decisions
-
-Return ONLY the JSON object, no markdown, no explanations."""
+    def _create_prompt(self, previous_graph: Optional[Dict], new_text: str) -> str:
+        """Create prompt by replacing placeholders in the system prompt template"""
+        # Format previous_graph as JSON string or "null"
+        if previous_graph:
+            previous_graph_json = json.dumps(previous_graph, indent=2)
+        else:
+            previous_graph_json = "null"
+        
+        # Replace placeholders using string replacement (not .format() to avoid conflicts with JSON braces)
+        prompt = self.system_prompt_template.replace(
+            "{previous_graph}",
+            previous_graph_json
+        ).replace(
+            "{new_text}",
+            new_text
+        )
+        
         return prompt
     
     def _call_llm(self, prompt: str) -> str:
         """Call Anthropic Claude API"""
         message = self.client.messages.create(
             model=self.llm_model,
-            max_tokens=4000,
+            max_tokens=8000,  # Increased for complete graphs
             messages=[{
                 "role": "user",
                 "content": prompt
@@ -237,180 +116,135 @@ Return ONLY the JSON object, no markdown, no explanations."""
         )
         return message.content[0].text
     
-    def extract(self, text: str, metadata: Optional[Dict] = None) -> ExtractedFeatures:
+    def generate_graph(self, 
+                      new_text: str, 
+                      previous_graph: Optional[Dict] = None,
+                      metadata: Optional[Dict] = None) -> Dict:
         """
-        Extract all features from the given text using LLM.
+        Generate a complete knowledge graph from new text and previous graph state.
         
         Args:
-            text: Input transcript text
-            metadata: Optional metadata (timestamp, session_id, etc.)
+            new_text: New transcript chunk to process
+            previous_graph: Previous graph state (or None if first chunk)
+            metadata: Optional metadata (session_id, timestamp, etc.)
             
         Returns:
-            ExtractedFeatures object containing all extracted features
+            Complete graph dictionary with nodes, edges, and metadata
         """
-        if not text or not text.strip():
-            return ExtractedFeatures(
-                entities=[],
-                concepts=[],
-                questions=[],
-                actions=[],
-                decisions=[],
-                key_phrases=[],
-                sentences=[],
-                metadata=metadata or {}
-            )
+        if not new_text or not new_text.strip():
+            # Return empty graph structure
+            return {
+                "nodes": [],
+                "edges": [],
+                "metadata": {
+                    "summary": "",
+                    "main_themes": [],
+                    "graph_complexity": 0.0,
+                    "layout_hint": "force"
+                }
+            }
         
         # Create prompt and call LLM
-        prompt = self._create_extraction_prompt(text)
+        prompt = self._create_prompt(previous_graph, new_text)
         
         try:
             response_text = self._call_llm(prompt)
         except Exception as e:
-            raise RuntimeError(f"Failed to call Claude API for feature extraction: {e}")
+            raise RuntimeError(f"Failed to call Claude API for graph generation: {e}")
         
         # Extract JSON from response
         json_text = _extract_json_from_response(response_text)
         
         try:
-            extracted_data = json.loads(json_text)
+            graph = json.loads(json_text)
         except json.JSONDecodeError as e:
             raise ValueError(f"Failed to parse LLM response as JSON: {e}\nResponse was: {response_text[:500]}")
         
-        # Parse extracted data into structured objects
-        entities = [
-            ExtractedEntity(
-                text=e['text'],
-                label=e.get('label', 'OTHER'),
-                start_char=e.get('start_char', 0),
-                end_char=e.get('end_char', len(e['text'])),
-                confidence=e.get('confidence', 0.8)
-            )
-            for e in extracted_data.get('entities', [])
-        ]
+        # Validate basic structure
+        if not isinstance(graph, dict):
+            raise ValueError("LLM response is not a valid JSON object")
         
-        concepts = [
-            ExtractedConcept(
-                text=c['text'],
-                importance_score=c.get('importance_score', 0.5),
-                frequency=c.get('frequency', 1),
-                positions=c.get('positions', [0])
-            )
-            for c in extracted_data.get('concepts', [])
-        ]
+        # Ensure required top-level keys exist
+        if "nodes" not in graph:
+            graph["nodes"] = []
+        if "edges" not in graph:
+            graph["edges"] = []
+        if "metadata" not in graph:
+            graph["metadata"] = {}
         
-        questions = [
-            ExtractedQuestion(
-                text=q['text'],
-                question_type=q.get('question_type', 'yes_no'),
-                start_char=q.get('start_char', 0),
-                end_char=q.get('end_char', len(q['text']))
-            )
-            for q in extracted_data.get('questions', [])
-        ]
+        # Add generation metadata
+        graph_metadata = graph.get("metadata", {})
+        graph_metadata["generation_timestamp"] = datetime.utcnow().isoformat() + 'Z'
+        graph_metadata["llm_model"] = self.llm_model
         
-        actions = [
-            ExtractedAction(
-                text=a['text'],
-                action_verb=a.get('action_verb', 'act'),
-                confidence=a.get('confidence', 0.8),
-                start_char=a.get('start_char', 0),
-                end_char=a.get('end_char', len(a['text']))
-            )
-            for a in extracted_data.get('actions', [])
-        ]
+        # Merge with provided metadata
+        if metadata:
+            graph_metadata.update(metadata)
         
-        decisions = [
-            ExtractedDecision(
-                text=d['text'],
-                decision_type=d.get('decision_type', 'choice'),
-                confidence=d.get('confidence', 0.8),
-                start_char=d.get('start_char', 0),
-                end_char=d.get('end_char', len(d['text']))
-            )
-            for d in extracted_data.get('decisions', [])
-        ]
+        graph["metadata"] = graph_metadata
         
-        key_phrases = extracted_data.get('key_phrases', [])
-        sentences = _split_into_sentences(text)
-        
-        extract_metadata = {
-            'text_length': len(text),
-            'word_count': len(text.split()),
-            'sentence_count': len(sentences),
-            'extraction_timestamp': datetime.utcnow().isoformat() + 'Z',
-            'llm_model': self.llm_model,
-            **(metadata or {})
-        }
-        
-        return ExtractedFeatures(
-            entities=entities,
-            concepts=concepts,
-            questions=questions,
-            actions=actions,
-            decisions=decisions,
-            key_phrases=key_phrases,
-            sentences=sentences,
-            metadata=extract_metadata
-        )
+        return graph
 
 
-def extract_features(text: str, 
-                    llm_model: str = "claude-3-5-haiku-20241022",
-                    metadata: Optional[Dict] = None) -> Dict:
+def generate_graph(new_text: str,
+                   previous_graph: Optional[Dict] = None,
+                   llm_model: str = "claude-3-5-haiku-20241022",
+                   metadata: Optional[Dict] = None) -> Dict:
     """
-    Convenience function to extract features from text using Claude.
+    Convenience function to generate a graph from text using Claude.
     
     Args:
-        text: Input transcript text
+        new_text: New transcript chunk to process
+        previous_graph: Previous graph state (or None if first chunk)
         llm_model: Claude model name
         metadata: Optional metadata dictionary
         
     Returns:
-        Dictionary representation of extracted features
+        Complete graph dictionary
     """
     extractor = FeatureExtractor(llm_model=llm_model)
-    features = extractor.extract(text, metadata)
-    return features.to_dict()
+    return extractor.generate_graph(new_text, previous_graph, metadata)
 
 
 if __name__ == "__main__":
-    # Test the feature extractor
-    test_text = """
-    Okay, so let's talk about the mobile app redesign. I think we really need to focus on user experience, 
-    especially for first-time users. The onboarding flow is confusing right now. 
-    
-    What do you think about using React Native? We should test it on iPhone and Android devices. 
-    We decided to go with a modern design system. Let's schedule a meeting with the design team next week.
-    """
+    # Test the graph generator
+    test_text = "I think we need to focus on mobile responsiveness as part of the UX. Let's make sure it works on all devices. We should test on iPhone and Android."
     
     try:
         extractor = FeatureExtractor()
-        features = extractor.extract(test_text)
         
-        print("=== Extracted Features ===\n")
-        print(f"Entities ({len(features.entities)}):")
-        for entity in features.entities:
-            print(f"  - {entity.text} ({entity.label}) confidence: {entity.confidence:.2f}")
+        # Test with no previous graph (first chunk)
+        print("=== Generating First Graph ===\n")
+        graph1 = extractor.generate_graph(test_text)
         
-        print(f"\nConcepts ({len(features.concepts)}):")
-        for concept in features.concepts[:10]:
-            print(f"  - {concept.text} (importance: {concept.importance_score:.2f}, freq: {concept.frequency})")
+        print(f"Nodes: {len(graph1.get('nodes', []))}")
+        print(f"Edges: {len(graph1.get('edges', []))}")
+        print(f"\nSummary: {graph1.get('metadata', {}).get('summary', 'N/A')}")
+        print(f"Themes: {graph1.get('metadata', {}).get('main_themes', [])}")
         
-        print(f"\nQuestions ({len(features.questions)}):")
-        for question in features.questions:
-            print(f"  - {question.text} ({question.question_type})")
+        print("\n=== Nodes ===")
+        for node in graph1.get('nodes', [])[:5]:
+            print(f"  - {node.get('label')} [{node.get('type')}] (importance: {node.get('importance', 0):.2f})")
         
-        print(f"\nActions ({len(features.actions)}):")
-        for action in features.actions:
-            print(f"  - {action.text} (verb: {action.action_verb})")
+        print("\n=== Edges ===")
+        for edge in graph1.get('edges', [])[:5]:
+            print(f"  - {edge.get('source')} -> {edge.get('target')} [{edge.get('type')}]")
         
-        print(f"\nDecisions ({len(features.decisions)}):")
-        for decision in features.decisions:
-            print(f"  - {decision.text} (type: {decision.decision_type})")
+        # Test with previous graph (update)
+        print("\n\n=== Generating Updated Graph ===\n")
+        graph2 = extractor.generate_graph(
+            "Actually, I think we should prioritize tablet support too. And maybe add a dark mode feature.",
+            previous_graph=graph1
+        )
         
-        print(f"\nKey Phrases ({len(features.key_phrases)}):")
-        for phrase in features.key_phrases[:10]:
-            print(f"  - {phrase}")
+        print(f"Nodes: {len(graph2.get('nodes', []))}")
+        print(f"Edges: {len(graph2.get('edges', []))}")
+        print(f"\nSummary: {graph2.get('metadata', {}).get('summary', 'N/A')}")
+        
+        # Save to file for inspection
+        with open('test_graph_output.json', 'w') as f:
+            json.dump(graph2, f, indent=2)
+        print("\n✓ Graph saved to test_graph_output.json")
             
     except Exception as e:
         print(f"Error: {e}")

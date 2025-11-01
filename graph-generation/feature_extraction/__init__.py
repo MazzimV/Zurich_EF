@@ -1,10 +1,9 @@
 """
-Feature Extraction Module
+Knowledge Graph Generation Module
 
-Extracts structured features from transcript text using Claude LLM.
+Generates knowledge graphs from transcript text using Claude LLM.
 """
 
-from .feature_extractor import FeatureExtractor, ExtractedFeatures, extract_features
+from .feature_extractor import FeatureExtractor, generate_graph
 
-__all__ = ['FeatureExtractor', 'ExtractedFeatures', 'extract_features']
-
+__all__ = ['FeatureExtractor', 'generate_graph']
