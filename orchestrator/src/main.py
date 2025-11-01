@@ -37,6 +37,7 @@ CORS(app)  # Enable CORS for frontend
 # Configuration
 STT_SERVICE_URL = os.getenv('STT_SERVICE_URL', 'http://localhost:8005')
 GRAPH_SERVICE_URL = os.getenv('GRAPH_SERVICE_URL', 'http://localhost:8002')
+JESSICA_SERVICE_URL = os.getenv('JESSICA_SERVICE_URL', 'http://localhost:8004')
 PORT = int(os.getenv('PORT', 8003))
 DEBUG = os.getenv('DEBUG', 'false').lower() == 'true'
 MAX_SESSIONS = int(os.getenv('MAX_SESSIONS', 10))
@@ -84,6 +85,78 @@ def check_service_health(service_name: str, url: str) -> bool:
     cache['last_check'] = time.time()
 
     return healthy
+
+
+def is_jessica_question(text: str) -> bool:
+    """
+    Detect if the text contains a question for Jessica.
+
+    Args:
+        text: Transcript text to check
+
+    Returns:
+        bool: True if Jessica is mentioned
+    """
+    if not text:
+        return False
+
+    text_lower = text.lower()
+
+    # Jessica trigger keywords
+    jessica_triggers = [
+        "jessica",
+        "@jessica",
+        "hey jessica",
+        "ok jessica",
+        "hi jessica"
+    ]
+
+    return any(trigger in text_lower for trigger in jessica_triggers)
+
+
+def call_jessica(question: str, session_id: str, meeting_transcript: str) -> Optional[dict]:
+    """
+    Call Jessica service to get an answer.
+
+    Args:
+        question: The question for Jessica
+        session_id: Current session ID
+        meeting_transcript: Full meeting transcript for context
+
+    Returns:
+        Jessica response dict or None if failed
+    """
+    try:
+        logger.info(f"Calling Jessica for session {session_id}")
+
+        # Get current graph for context
+        session_state = orchestrator.get_session(session_id)
+        current_graph = session_state.get('graph') if session_state else None
+
+        response = requests.post(
+            f"{JESSICA_SERVICE_URL}/answer-question",
+            json={
+                "question": question,
+                "session_id": session_id,
+                "transcript": meeting_transcript,
+                "graph": current_graph
+            },
+            headers={'Content-Type': 'application/json'},
+            timeout=30  # Alice might take time to generate response
+        )
+
+        if response.status_code == 200:
+            return response.json()
+        else:
+            logger.error(f"Jessica service error: {response.status_code} - {response.text}")
+            return None
+
+    except requests.exceptions.Timeout:
+        logger.error("Jessica service timeout")
+        return None
+    except Exception as e:
+        logger.error(f"Failed to call Jessica: {e}", exc_info=True)
+        return None
 
 
 @app.route('/health', methods=['GET'])
@@ -292,8 +365,35 @@ def stream_session(session_id: str):
                         # Add chunk to session
                         orchestrator.add_transcript_chunk(session_id, chunk_data)
 
-                        # Call graph-generation service
+                        # Get session state for both Jessica and graph generation
                         session_state = orchestrator.get_session(session_id)
+
+                        # Check if Jessica was mentioned (detect questions for Jessica)
+                        chunk_text = chunk_data.get('text', '')
+                        if chunk_text and is_jessica_question(chunk_text):
+                            logger.info(f"Jessica question detected in session {session_id}")
+
+                            # Call Jessica with full meeting transcript
+                            full_transcript = session_state.get('full_transcript', '')
+                            jessica_response = call_jessica(chunk_text, session_id, full_transcript)
+
+                            if jessica_response:
+                                # Emit Jessica response as separate SSE event
+                                jessica_event = {
+                                    'event_type': 'jessica_response',
+                                    'session_id': session_id,
+                                    'question': chunk_text,
+                                    'answer': jessica_response.get('answer', ''),
+                                    'thinking_steps': jessica_response.get('thinking_steps', []),
+                                    'audio_base64': jessica_response.get('audio_base64'),
+                                    'processing_time_ms': jessica_response.get('processing_time_ms'),
+                                    'timestamp': datetime.utcnow().isoformat() + 'Z'
+                                }
+
+                                yield f"data: {json.dumps(jessica_event)}\n\n"
+                                logger.info(f"Jessica response sent for session {session_id}")
+
+                        # Call graph-generation service (continues as normal)
                         previous_graph = session_state.get('graph')
 
                         # Get the transcript that was used to build the current graph

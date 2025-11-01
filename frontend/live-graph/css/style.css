@@ -756,3 +756,170 @@ button:disabled {
     min-height: 400px;
   }
 }
+
+/* Jessica Assistant Card */
+.jessica-card {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  width: 400px;
+  max-height: calc(100vh - 100px);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.jessica-header {
+  background: linear-gradient(135deg, #3B82F6 0%, #1E40AF 100%);
+  color: white;
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.jessica-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.jessica-icon {
+  font-size: 20px;
+}
+
+.jessica-close {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.jessica-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.jessica-content {
+  padding: 16px;
+  overflow-y: auto;
+  max-height: calc(100vh - 200px);
+}
+
+.jessica-question {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: rgba(59, 130, 246, 0.1);
+  border-left: 3px solid #3B82F6;
+  border-radius: 4px;
+}
+
+.jessica-question p {
+  margin: 4px 0 0 0;
+  color: #1E3A8A;
+}
+
+.jessica-thinking {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: rgba(251, 191, 36, 0.1);
+  border-left: 3px solid #F59E0B;
+  border-radius: 4px;
+}
+
+#jessica-thinking-steps {
+  margin-top: 8px;
+}
+
+.thinking-step {
+  padding: 8px;
+  margin-bottom: 8px;
+  background: white;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.thinking-step-type {
+  font-weight: 600;
+  color: #F59E0B;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+}
+
+.thinking-step-description {
+  color: #1E3A8A;
+  margin-top: 4px;
+}
+
+.thinking-step-content {
+  color: #64748B;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.jessica-answer {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: rgba(16, 185, 129, 0.1);
+  border-left: 3px solid #10B981;
+  border-radius: 4px;
+}
+
+.jessica-answer p {
+  margin: 4px 0 0 0;
+  color: #1E3A8A;
+  line-height: 1.6;
+}
+
+.jessica-audio {
+  margin-bottom: 16px;
+}
+
+#jessica-audio {
+  width: 100%;
+  border-radius: 8px;
+}
+
+.jessica-processing-time {
+  text-align: right;
+  color: #64748B;
+  font-size: 12px;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .jessica-card {
+    width: calc(100% - 40px);
+    right: 20px;
+    top: 60px;
+  }
+}

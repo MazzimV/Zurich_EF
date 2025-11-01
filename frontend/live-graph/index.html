@@ -58,6 +58,42 @@
       </div>
     </div>
 
+    <!-- Jessica Assistant Card -->
+    <div id="jessica-card" class="jessica-card" style="display: none;">
+      <div class="jessica-header">
+        <div class="jessica-title">
+          <span class="jessica-icon">🤖</span>
+          <span>Jessica Assistant</span>
+        </div>
+        <button class="jessica-close" id="jessica-close">×</button>
+      </div>
+
+      <div class="jessica-content">
+        <div class="jessica-question">
+          <strong>Question:</strong>
+          <p id="jessica-question-text"></p>
+        </div>
+
+        <div class="jessica-thinking" id="jessica-thinking" style="display: none;">
+          <strong>Thinking...</strong>
+          <div id="jessica-thinking-steps"></div>
+        </div>
+
+        <div class="jessica-answer" id="jessica-answer" style="display: none;">
+          <strong>Answer:</strong>
+          <p id="jessica-answer-text"></p>
+        </div>
+
+        <div class="jessica-audio" id="jessica-audio-player" style="display: none;">
+          <audio id="jessica-audio" controls></audio>
+        </div>
+
+        <div class="jessica-processing-time" id="jessica-processing-time" style="display: none;">
+          <small>Processing time: <span id="jessica-time-value"></span>ms</small>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- Load components -->
@@ -107,6 +143,12 @@
       // Set up event listeners
       setupEventListeners();
       setupLiveModeListeners();
+
+      // Set up Jessica card close button
+      const jessicaCloseBtn = document.getElementById('jessica-close');
+      if (jessicaCloseBtn) {
+        jessicaCloseBtn.addEventListener('click', closeJessicaCard);
+      }
     });
 
     /**
@@ -427,6 +469,119 @@
     }
 
     /**
+     * Display Jessica response in UI card
+     */
+    function displayJessicaResponse(data) {
+      console.log('🤖 Displaying Jessica response:', data);
+
+      // Get Jessica card elements
+      const jessicaCard = document.getElementById('jessica-card');
+      const questionText = document.getElementById('jessica-question-text');
+      const thinkingContainer = document.getElementById('jessica-thinking');
+      const thinkingSteps = document.getElementById('jessica-thinking-steps');
+      const answerContainer = document.getElementById('jessica-answer');
+      const answerText = document.getElementById('jessica-answer-text');
+      const audioPlayer = document.getElementById('jessica-audio-player');
+      const audioElement = document.getElementById('jessica-audio');
+      const processingTimeContainer = document.getElementById('jessica-processing-time');
+      const processingTimeValue = document.getElementById('jessica-time-value');
+
+      // Show card
+      jessicaCard.style.display = 'block';
+
+      // Display question
+      questionText.textContent = data.question || 'Question not available';
+
+      // Display thinking steps if available
+      if (data.thinking_steps && data.thinking_steps.length > 0) {
+        thinkingContainer.style.display = 'block';
+        thinkingSteps.innerHTML = '';
+
+        // Animate thinking steps
+        data.thinking_steps.forEach((step, index) => {
+          setTimeout(() => {
+            const stepDiv = document.createElement('div');
+            stepDiv.className = 'thinking-step';
+            stepDiv.innerHTML = `
+              <div class="thinking-step-type">${step.step_type}</div>
+              <div class="thinking-step-description">${step.description}</div>
+              ${step.content ? `<div class="thinking-step-content">${step.content}</div>` : ''}
+            `;
+            thinkingSteps.appendChild(stepDiv);
+
+            // Scroll to bottom
+            thinkingSteps.scrollTop = thinkingSteps.scrollHeight;
+          }, index * 200); // Stagger animation
+        });
+      }
+
+      // Display answer after thinking steps finish
+      const thinkingDelay = (data.thinking_steps?.length || 0) * 200 + 300;
+      setTimeout(() => {
+        if (data.answer) {
+          answerContainer.style.display = 'block';
+          answerText.textContent = data.answer;
+        }
+
+        // Display audio player if available
+        if (data.audio_base64) {
+          audioPlayer.style.display = 'block';
+          const audioBlob = base64ToBlob(data.audio_base64, 'audio/mpeg');
+          const audioUrl = URL.createObjectURL(audioBlob);
+          audioElement.src = audioUrl;
+
+          // Auto-play audio
+          audioElement.play().catch(err => {
+            console.warn('Auto-play failed (user interaction required):', err);
+          });
+        }
+
+        // Display processing time
+        if (data.processing_time_ms) {
+          processingTimeContainer.style.display = 'block';
+          processingTimeValue.textContent = Math.round(data.processing_time_ms);
+        }
+      }, thinkingDelay);
+    }
+
+    /**
+     * Convert base64 to blob
+     */
+    function base64ToBlob(base64, mimeType) {
+      const byteCharacters = atob(base64);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      return new Blob([byteArray], { type: mimeType });
+    }
+
+    /**
+     * Close Jessica card
+     */
+    function closeJessicaCard() {
+      const jessicaCard = document.getElementById('jessica-card');
+      const audioElement = document.getElementById('jessica-audio');
+
+      // Stop audio if playing
+      if (audioElement) {
+        audioElement.pause();
+        audioElement.src = '';
+      }
+
+      // Hide card
+      jessicaCard.style.display = 'none';
+
+      // Reset content
+      document.getElementById('jessica-thinking').style.display = 'none';
+      document.getElementById('jessica-thinking-steps').innerHTML = '';
+      document.getElementById('jessica-answer').style.display = 'none';
+      document.getElementById('jessica-audio-player').style.display = 'none';
+      document.getElementById('jessica-processing-time').style.display = 'none';
+    }
+
+    /**
      * Start live session
      */
     async function startLiveSession() {
@@ -455,6 +610,13 @@
           sessionManager = new SessionManager(url, {
             onUpdate: (data) => {
               console.log('📨 Received SSE update:', data);
+
+              // Handle Jessica response
+              if (data.event_type === 'jessica_response') {
+                console.log('🤖 Jessica response received:', data);
+                displayJessicaResponse(data);
+                return;
+              }
 
               // Update graph
               if (data.graph) {

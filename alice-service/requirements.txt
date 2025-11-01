@@ -1,0 +1,11 @@
+# Core dependencies
+flask==3.0.0
+flask-cors==4.0.0
+python-dotenv==1.0.0
+
+# LLM provider
+anthropic>=0.40.0          # For Claude
+httpx>=0.27.0              # Required for Anthropic compatibility
+
+# Utilities
+requests==2.31.0
