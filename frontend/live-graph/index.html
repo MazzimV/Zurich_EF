@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Graph Visualization - Brainstorm Tool</title>
+  <link rel="stylesheet" href="css/style.css">
+  <!-- D3.js v7 -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <h1>Live Graph Visualization</h1>
+      <p>Real-time knowledge graph from speech transcription</p>
+    </header>
+
+    <!-- Test Controls -->
+    <div class="test-controls">
+      <h4>Test Mode Controls</h4>
+      <div class="test-buttons">
+        <button class="btn-primary" id="test-static">Test 1: Load Static Graph</button>
+        <button class="btn-success" id="test-mock">Test 2: Start Mock Updates</button>
+        <button class="btn-warning" id="stop-mock" disabled>Stop Mock Updates</button>
+        <button class="btn-danger" id="clear-all">Clear All</button>
+      </div>
+      <div style="margin-top: 10px;">
+        <span class="status-indicator">
+          <span class="status-dot" id="status-dot"></span>
+          <span id="status-text">Ready</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <!-- Transcript Panel -->
+      <div class="transcript-panel">
+        <div id="transcript-display"></div>
+      </div>
+
+      <!-- Graph Panel -->
+      <div class="graph-panel">
+        <div class="graph-controls">
+          <div class="graph-info">
+            <strong>Version:</strong> <span id="graph-version">-</span> |
+            <strong>Nodes:</strong> <span id="node-count">0</span> |
+            <strong>Edges:</strong> <span id="edge-count">0</span>
+          </div>
+          <div class="control-buttons">
+            <button class="btn-secondary" id="debug-edges">Debug Edges</button>
+            <button class="btn-secondary" id="reset-zoom">Reset Zoom</button>
+          </div>
+        </div>
+        <div class="graph-container">
+          <div id="graph-canvas"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Load components -->
+  <script src="js/graph-renderer.js"></script>
+  <script src="js/transcript-display.js"></script>
+  <script src="test-data/mock-updates.js"></script>
+
+  <!-- Main application script -->
+  <script>
+    // Initialize components
+    let graphRenderer;
+    let transcriptDisplay;
+    let mockUpdateInterval;
+    let currentMockIndex = 0;
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      // Create graph renderer
+      graphRenderer = new GraphRenderer('graph-canvas', {
+        width: 1200,
+        height: 800,
+        nodeRadiusScale: [8, 35],
+        edgeWidthScale: [2, 6]  // Increased from [1, 5] for better visibility
+      });
+
+      // Create transcript display
+      transcriptDisplay = new TranscriptDisplay('transcript-display', {
+        maxChunks: 100,
+        autoScroll: true
+      });
+
+      console.log('✅ Components initialized');
+      updateStatus('Ready', false);
+
+      // Set up event listeners
+      setupEventListeners();
+    });
+
+    /**
+     * Set up event listeners for controls
+     */
+    function setupEventListeners() {
+      // Test 1: Load static graph
+      document.getElementById('test-static').addEventListener('click', loadStaticGraph);
+
+      // Test 2: Start mock updates
+      document.getElementById('test-mock').addEventListener('click', startMockUpdates);
+
+      // Stop mock updates
+      document.getElementById('stop-mock').addEventListener('click', stopMockUpdates);
+
+      // Clear all
+      document.getElementById('clear-all').addEventListener('click', clearAll);
+
+      // Debug edges
+      document.getElementById('debug-edges').addEventListener('click', () => {
+        const edges = document.querySelectorAll('.links line');
+        console.log('=== EDGE DEBUG ===');
+        console.log(`Total edges in DOM: ${edges.length}`);
+        edges.forEach((edge, i) => {
+          console.log(`Edge ${i}:`, {
+            x1: edge.getAttribute('x1'),
+            y1: edge.getAttribute('y1'),
+            x2: edge.getAttribute('x2'),
+            y2: edge.getAttribute('y2'),
+            stroke: edge.getAttribute('stroke'),
+            strokeWidth: edge.getAttribute('stroke-width'),
+            opacity: edge.style.opacity
+          });
+        });
+        console.log('Graph data edges:', graphRenderer.edges);
+      });
+
+      // Reset zoom
+      document.getElementById('reset-zoom').addEventListener('click', () => {
+        // Re-initialize graph (resets zoom/pan)
+        const stats = graphRenderer.getStats();
+        if (stats.nodeCount > 0) {
+          graphRenderer.simulation.alpha(0.3).restart();
+        }
+      });
+    }
+
+    /**
+     * Test 1: Load static graph from JSON
+     */
+    async function loadStaticGraph() {
+      try {
+        updateStatus('Loading static graph...', true);
+        console.log('📂 Loading static graph...');
+
+        // Fetch static graph JSON
+        const response = await fetch('test-data/static-graph.json');
+        if (!response.ok) {
+          throw new Error(`Failed to load: ${response.statusText}`);
+        }
+
+        const graphData = await response.json();
+        console.log('✅ Static graph loaded:', graphData);
+
+        // Update graph
+        graphRenderer.updateGraph(graphData);
+        updateGraphInfo(graphData);
+
+        // Update transcript with sample text
+        transcriptDisplay.clear();
+        transcriptDisplay.addChunk({
+          text: "Okay, so let's talk about the mobile app redesign. I think we really need to focus on user experience, especially for first-time users. The onboarding flow is confusing right now.",
+          speaker: "Speaker 1",
+          timestamp: graphData.timestamp,
+          chunk_id: 0
+        });
+
+        updateStatus('Static graph loaded', false);
+        console.log('✅ Static graph test complete');
+
+      } catch (error) {
+        console.error('❌ Failed to load static graph:', error);
+        alert(`Failed to load static graph: ${error.message}`);
+        updateStatus('Error', false);
+      }
+    }
+
+    /**
+     * Test 2: Start mock updates (simulated SSE)
+     */
+    function startMockUpdates() {
+      // Clear any existing interval
+      if (mockUpdateInterval) {
+        clearInterval(mockUpdateInterval);
+      }
+
+      // Reset state
+      currentMockIndex = 0;
+      graphRenderer.clear();
+      transcriptDisplay.clear();
+      updateGraphInfo({ version: 0, nodes: [], edges: [] });
+
+      console.log('🚀 Starting mock updates...');
+      updateStatus('Mock updates running', true);
+
+      // Enable/disable buttons
+      document.getElementById('test-mock').disabled = true;
+      document.getElementById('stop-mock').disabled = false;
+      document.getElementById('test-static').disabled = true;
+
+      // Process first update immediately
+      processMockUpdate();
+
+      // Then continue every 3 seconds
+      mockUpdateInterval = setInterval(() => {
+        if (currentMockIndex < mockUpdates.length) {
+          processMockUpdate();
+        } else {
+          // All updates processed
+          stopMockUpdates();
+          updateStatus('Mock updates complete', false);
+          console.log('✅ All mock updates processed');
+        }
+      }, 3000);
+    }
+
+    /**
+     * Process a single mock update
+     */
+    function processMockUpdate() {
+      if (currentMockIndex >= mockUpdates.length) {
+        return;
+      }
+
+      const update = mockUpdates[currentMockIndex];
+      console.log(`📨 Processing update ${currentMockIndex + 1}/${mockUpdates.length}`);
+
+      // Update graph
+      graphRenderer.updateGraph(update.graph);
+      updateGraphInfo(update.graph);
+
+      // Add transcript chunk
+      transcriptDisplay.addChunk({
+        text: update.transcript.text,
+        speaker: update.transcript.speaker,
+        timestamp: update.timestamp,
+        chunk_id: update.chunk_id
+      });
+
+      currentMockIndex++;
+    }
+
+    /**
+     * Stop mock updates
+     */
+    function stopMockUpdates() {
+      if (mockUpdateInterval) {
+        clearInterval(mockUpdateInterval);
+        mockUpdateInterval = null;
+      }
+
+      console.log('⏹️  Mock updates stopped');
+      updateStatus('Stopped', false);
+
+      // Re-enable buttons
+      document.getElementById('test-mock').disabled = false;
+      document.getElementById('stop-mock').disabled = true;
+      document.getElementById('test-static').disabled = false;
+    }
+
+    /**
+     * Clear all data
+     */
+    function clearAll() {
+      console.log('🗑️  Clearing all data');
+
+      // Stop mock updates if running
+      if (mockUpdateInterval) {
+        stopMockUpdates();
+      }
+
+      // Clear components
+      graphRenderer.clear();
+      transcriptDisplay.clear();
+      updateGraphInfo({ version: 0, nodes: [], edges: [] });
+
+      updateStatus('Ready', false);
+      console.log('✅ All data cleared');
+    }
+
+    /**
+     * Update graph info display
+     */
+    function updateGraphInfo(graphData) {
+      document.getElementById('graph-version').textContent = graphData.version || '-';
+      document.getElementById('node-count').textContent = graphData.nodes?.length || 0;
+      document.getElementById('edge-count').textContent = graphData.edges?.length || 0;
+    }
+
+    /**
+     * Update status indicator
+     */
+    function updateStatus(text, active) {
+      document.getElementById('status-text').textContent = text;
+      const dot = document.getElementById('status-dot');
+
+      if (active) {
+        dot.classList.add('active');
+      } else {
+        dot.classList.remove('active');
+      }
+    }
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      const container = document.getElementById('graph-canvas');
+      if (container && graphRenderer) {
+        const rect = container.getBoundingClientRect();
+        graphRenderer.resize(rect.width, rect.height);
+      }
+    });
+  </script>
+</body>
+</html>

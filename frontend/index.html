@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MindsBloom - Transform Conversations into Visual Knowledge</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Color System */
+            --primary-indigo: hsl(262, 83%, 58%);
+            --primary-violet: hsl(262, 73%, 48%);
+            --secondary-cyan: hsl(189, 94%, 43%);
+            --secondary-cyan-light: hsl(189, 94%, 53%);
+
+            /* Gradients */
+            --gradient-primary: linear-gradient(135deg, var(--primary-violet), var(--primary-indigo));
+            --gradient-secondary: linear-gradient(135deg, var(--secondary-cyan), var(--secondary-cyan-light));
+            --gradient-mixed: linear-gradient(135deg, var(--primary-indigo), var(--secondary-cyan));
+            --gradient-animated: linear-gradient(135deg, #7C3AED 0%, #A78BFA 25%, #06B6D4 50%, #22D3EE 75%, #A78BFA 100%);
+
+            /* Glass Effect */
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --glass-border: rgba(124, 58, 237, 0.1);
+            --glass-blur: blur(20px);
+
+            /* Shadows */
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+            --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
+            --shadow-glow-indigo: 0 8px 32px rgba(124, 58, 237, 0.3);
+            --shadow-glow-cyan: 0 8px 32px rgba(6, 182, 212, 0.3);
+
+            /* Spacing */
+            --spacing-unit: 8px;
+
+            /* Typography */
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+            /* Transitions */
+            --transition-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background: #ffffff;
+            color: hsl(220, 26%, 14%);
+            overflow-x: hidden;
+            letter-spacing: -0.01em;
+            position: relative;
+            min-height: 100vh;
+        }
+
+        /* Background Effects */
+        .bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .bg-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.3;
+            animation: float 20s ease-in-out infinite;
+        }
+
+        .bg-orb-1 {
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--primary-indigo) 0%, transparent 70%);
+            top: -200px;
+            right: -100px;
+            animation-delay: 0s;
+        }
+
+        .bg-orb-2 {
+            width: 700px;
+            height: 700px;
+            background: radial-gradient(circle, var(--secondary-cyan) 0%, transparent 70%);
+            bottom: -300px;
+            left: -200px;
+            animation-delay: 7s;
+        }
+
+        .bg-orb-3 {
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, var(--primary-violet) 0%, transparent 70%);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            animation-delay: 14s;
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translate(0, 0) scale(1);
+            }
+            33% {
+                transform: translate(30px, -30px) scale(1.1);
+            }
+            66% {
+                transform: translate(-30px, 30px) scale(0.9);
+            }
+        }
+
+        .bg-grid {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                linear-gradient(rgba(124, 58, 237, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(124, 58, 237, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            mask-image: radial-gradient(ellipse at center, black 20%, transparent 80%);
+        }
+
+        /* Noise Texture Utility */
+        .noise {
+            position: relative;
+        }
+
+        .noise::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' /%3E%3C/svg%3E");
+            pointer-events: none;
+        }
+
+        /* Container */
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 32px;
+        }
+
+        /* Glassmorphic Header */
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            border-bottom: 1px solid var(--glass-border);
+            padding: 20px 0;
+        }
+
+        .header-content {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            box-shadow: 0 4px 16px rgba(124, 58, 237, 0.4);
+            background: #000;
+        }
+
+        .logo-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .logo-text {
+            font-size: 20px;
+            font-weight: 700;
+            color: hsl(220, 26%, 14%);
+            letter-spacing: -0.02em;
+        }
+
+        nav {
+            display: flex;
+            gap: 40px;
+            align-items: center;
+        }
+
+        nav a {
+            color: hsl(220, 9%, 46%);
+            text-decoration: none;
+            font-size: 15px;
+            font-weight: 500;
+            transition: color 0.3s var(--transition-smooth);
+            letter-spacing: -0.01em;
+        }
+
+        nav a:hover {
+            color: var(--primary-indigo);
+        }
+
+        .nav-cta {
+            position: relative;
+            overflow: hidden;
+            padding: 10px 24px;
+            border-radius: 10px;
+            background: var(--gradient-mixed);
+            color: white !important;
+            font-weight: 600;
+            box-shadow: var(--shadow-glow-indigo);
+            transition: transform 0.3s var(--transition-smooth), box-shadow 0.3s var(--transition-smooth);
+        }
+
+        .nav-cta::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .nav-cta:hover::before {
+            left: 100%;
+        }
+
+        .nav-cta:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(124, 58, 237, 0.4);
+        }
+
+        /* Hero Section */
+        .hero {
+            padding-top: 160px;
+            padding-bottom: 120px;
+            text-align: center;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            padding: 8px 20px;
+            border-radius: 24px;
+            font-size: 14px;
+            font-weight: 500;
+            color: hsl(220, 9%, 46%);
+            margin-bottom: 32px;
+            box-shadow: var(--shadow-sm);
+            animation: slide-up 0.6s var(--transition-smooth);
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--primary-indigo);
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% {
+                opacity: 1;
+                box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.7);
+            }
+            50% {
+                opacity: 0.7;
+                box-shadow: 0 0 0 8px rgba(124, 58, 237, 0);
+            }
+        }
+
+        @keyframes slide-up {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .hero h1 {
+            font-size: 80px;
+            font-weight: 900;
+            line-height: 1.05;
+            letter-spacing: -0.03em;
+            color: hsl(220, 26%, 14%);
+            margin-bottom: 24px;
+            animation: slide-up 0.8s var(--transition-smooth) 0.1s backwards;
+        }
+
+        .gradient-text {
+            background: var(--gradient-mixed);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-description {
+            font-size: 22px;
+            line-height: 1.6;
+            color: hsl(220, 9%, 46%);
+            max-width: 700px;
+            margin: 0 auto 48px;
+            letter-spacing: -0.01em;
+            animation: slide-up 0.8s var(--transition-smooth) 0.2s backwards;
+        }
+
+        .hero-cta {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 80px;
+            animation: slide-up 0.8s var(--transition-smooth) 0.3s backwards;
+        }
+
+        .btn {
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s var(--transition-smooth);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: var(--gradient-mixed);
+            color: white;
+            box-shadow: var(--shadow-glow-indigo);
+        }
+
+        .btn-primary::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn-primary:hover::before {
+            left: 100%;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(124, 58, 237, 0.4);
+        }
+
+        .btn-secondary {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            color: var(--primary-indigo);
+            border: 1px solid var(--glass-border);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.9);
+            transform: translateY(-2px);
+            border-color: rgba(124, 58, 237, 0.2);
+        }
+
+        /* Demo Visualization */
+        .demo-container {
+            position: relative;
+            max-width: 1100px;
+            margin: 0 auto;
+            animation: slide-up 0.8s var(--transition-smooth) 0.4s backwards;
+        }
+
+        .demo-card {
+            position: relative;
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 48px;
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
+        }
+
+        .demo-visual {
+            position: relative;
+            height: 500px;
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.05) 0%, rgba(6, 182, 212, 0.05) 100%);
+            border-radius: 16px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .graph-node {
+            position: absolute;
+            padding: 16px 24px;
+            border-radius: 12px;
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            font-weight: 600;
+            font-size: 14px;
+            letter-spacing: -0.01em;
+            box-shadow: var(--shadow-md);
+            animation: float-node 4s ease-in-out infinite;
+            transition: all 0.3s var(--transition-smooth);
+        }
+
+        .graph-node:hover {
+            transform: scale(1.05);
+            box-shadow: var(--shadow-glow-indigo);
+        }
+
+        @keyframes float-node {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+        }
+
+        .graph-node:nth-child(1) {
+            top: 15%;
+            left: 15%;
+            animation-delay: 0s;
+            color: var(--primary-indigo);
+        }
+
+        .graph-node:nth-child(2) {
+            top: 25%;
+            right: 20%;
+            animation-delay: 0.5s;
+            color: var(--secondary-cyan);
+        }
+
+        .graph-node:nth-child(3) {
+            bottom: 30%;
+            left: 25%;
+            animation-delay: 1s;
+            color: var(--primary-violet);
+        }
+
+        .graph-node:nth-child(4) {
+            bottom: 20%;
+            right: 15%;
+            animation-delay: 1.5s;
+            color: var(--primary-indigo);
+        }
+
+        .graph-node:nth-child(5) {
+            top: 45%;
+            left: 45%;
+            animation-delay: 2s;
+            color: var(--secondary-cyan);
+        }
+
+        .live-indicator {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--primary-indigo);
+        }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            margin-top: -60px;
+            position: relative;
+            z-index: 10;
+        }
+
+        .stat-card {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 32px 24px;
+            text-align: center;
+            box-shadow: var(--shadow-md);
+            transition: all 0.3s var(--transition-smooth);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .stat-icon {
+            margin-bottom: 16px;
+        }
+
+        .stat-label {
+            font-size: 15px;
+            font-weight: 600;
+            color: hsl(220, 26%, 14%);
+            letter-spacing: -0.01em;
+        }
+
+        /* Features Section - Bento Grid */
+        .section {
+            padding: 120px 0;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 80px;
+        }
+
+        .section-title {
+            font-size: 56px;
+            font-weight: 900;
+            letter-spacing: -0.03em;
+            color: hsl(220, 26%, 14%);
+            margin-bottom: 16px;
+        }
+
+        .section-description {
+            font-size: 20px;
+            color: hsl(220, 9%, 46%);
+            letter-spacing: -0.01em;
+        }
+
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .bento-card {
+            position: relative;
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 48px 40px;
+            box-shadow: var(--shadow-md);
+            transition: all 0.3s var(--transition-smooth);
+            overflow: hidden;
+        }
+
+        .bento-card:first-child {
+            grid-column: span 2;
+        }
+
+        .bento-card:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-lg);
+            border-color: rgba(124, 58, 237, 0.2);
+        }
+
+        .bento-icon {
+            margin-bottom: 24px;
+        }
+
+        .bento-title {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: hsl(220, 26%, 14%);
+            margin-bottom: 12px;
+        }
+
+        .bento-description {
+            font-size: 16px;
+            line-height: 1.6;
+            color: hsl(220, 9%, 46%);
+            letter-spacing: -0.01em;
+        }
+
+        .decoration-blob {
+            position: absolute;
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: var(--gradient-mixed);
+            opacity: 0.05;
+            filter: blur(40px);
+            bottom: -50px;
+            right: -50px;
+            pointer-events: none;
+        }
+
+        /* How It Works - Timeline */
+        .timeline {
+            position: relative;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 40px;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            top: 80px;
+            left: 16.66%;
+            right: 16.66%;
+            height: 2px;
+            background: linear-gradient(90deg, var(--primary-indigo), var(--secondary-cyan));
+            z-index: 0;
+        }
+
+        .timeline-item {
+            position: relative;
+            z-index: 1;
+        }
+
+        .timeline-card {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 48px 32px;
+            box-shadow: var(--shadow-md);
+            transition: all 0.3s var(--transition-smooth);
+            text-align: center;
+        }
+
+        .timeline-card:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .timeline-number {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            background: var(--gradient-mixed);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            font-weight: 800;
+            margin: 0 auto 32px;
+            box-shadow: var(--shadow-glow-indigo);
+        }
+
+        .timeline-icon {
+            margin-bottom: 24px;
+        }
+
+        .timeline-title {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: hsl(220, 26%, 14%);
+            margin-bottom: 12px;
+        }
+
+        .timeline-description {
+            font-size: 15px;
+            line-height: 1.6;
+            color: hsl(220, 9%, 46%);
+            letter-spacing: -0.01em;
+        }
+
+        /* Use Cases */
+        .use-cases-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+        }
+
+        .use-case-card {
+            display: flex;
+            gap: 24px;
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 32px;
+            box-shadow: var(--shadow-md);
+            transition: all 0.3s var(--transition-smooth);
+        }
+
+        .use-case-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+            border-color: rgba(124, 58, 237, 0.2);
+        }
+
+        .use-case-icon-wrapper {
+            flex-shrink: 0;
+        }
+
+        .use-case-content h3 {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: hsl(220, 26%, 14%);
+            margin-bottom: 8px;
+        }
+
+        .use-case-content p {
+            font-size: 15px;
+            line-height: 1.6;
+            color: hsl(220, 9%, 46%);
+            letter-spacing: -0.01em;
+        }
+
+        /* Footer */
+        footer {
+            padding: 80px 0 40px;
+            border-top: 1px solid var(--glass-border);
+        }
+
+        .footer-content {
+            text-align: center;
+        }
+
+        .footer-tagline {
+            font-size: 16px;
+            font-weight: 600;
+            color: hsl(220, 9%, 46%);
+            margin-bottom: 24px;
+            letter-spacing: -0.01em;
+        }
+
+        .social-links {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            margin-bottom: 32px;
+        }
+
+        .social-link {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s var(--transition-smooth);
+            text-decoration: none;
+        }
+
+        .social-link:hover {
+            transform: translateY(-4px);
+            border-color: rgba(124, 58, 237, 0.3);
+            box-shadow: var(--shadow-glow-indigo);
+        }
+
+        .footer-copyright {
+            font-size: 14px;
+            color: hsl(220, 9%, 46%);
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .hero h1 {
+                font-size: 64px;
+            }
+
+            .bento-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .bento-card:first-child {
+                grid-column: span 1;
+            }
+
+            .timeline {
+                grid-template-columns: 1fr;
+            }
+
+            .timeline::before {
+                display: none;
+            }
+
+            .use-cases-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+                margin-top: 40px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            nav {
+                display: none;
+            }
+
+            .hero h1 {
+                font-size: 48px;
+            }
+
+            .hero-description {
+                font-size: 18px;
+            }
+
+            .demo-card {
+                padding: 24px;
+            }
+
+            .graph-node {
+                font-size: 12px;
+                padding: 12px 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- SVG Definitions for Custom Gradient Icons -->
+    <svg width="0" height="0" style="position: absolute;">
+        <defs>
+            <linearGradient id="iconGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#7C3AED;stop-opacity:1" />
+                <stop offset="100%" style="stop-color:#06B6D4;stop-opacity:1" />
+            </linearGradient>
+        </defs>
+    </svg>
+
+    <!-- Background Canvas -->
+    <div class="bg-canvas">
+        <div class="bg-orb bg-orb-1"></div>
+        <div class="bg-orb bg-orb-2"></div>
+        <div class="bg-orb bg-orb-3"></div>
+        <div class="bg-grid"></div>
+    </div>
+
+    <!-- Fixed Header -->
+    <header>
+        <div class="header-content">
+            <a href="#" class="logo">
+                <div class="logo-icon">
+                    <img src="logo.png" alt="MindsBloom Logo">
+                </div>
+                <span class="logo-text">MindsBloom</span>
+            </a>
+            <nav>
+                <a href="#features">Features</a>
+                <a href="#how-it-works">How It Works</a>
+                <a href="#use-cases">Use Cases</a>
+                <a href="#" class="nav-cta">Get Started</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-badge">
+                <span class="pulse-dot"></span>
+                <span>Introducing MindsBloom - Real-time AI visualization</span>
+            </div>
+
+            <h1>
+                Transform Conversations<br>
+                into <span class="gradient-text">Visual Knowledge</span>
+            </h1>
+
+            <p class="hero-description">
+                Speak naturally, watch ideas connect. AI-powered knowledge graphs that grow in real-time as you brainstorm, revealing insights you never knew existed.
+            </p>
+
+            <div class="hero-cta">
+                <button class="btn btn-primary">Start Brainstorming</button>
+                <button class="btn btn-secondary">Watch Demo</button>
+            </div>
+
+            <!-- Demo Visualization -->
+            <div class="demo-container">
+                <div class="demo-card noise">
+                    <div class="live-indicator">
+                        <span class="pulse-dot"></span>
+                        <span>Live</span>
+                    </div>
+                    <div class="demo-visual">
+                        <div class="graph-node">Innovation</div>
+                        <div class="graph-node">AI Strategy</div>
+                        <div class="graph-node">Collaboration</div>
+                        <div class="graph-node">Future Vision</div>
+                        <div class="graph-node">Impact</div>
+                        <svg style="position:absolute;width:100%;height:100%;pointer-events:none;opacity:0.2;">
+                            <line x1="20%" y1="20%" x2="50%" y2="50%" stroke="url(#iconGradient)" stroke-width="2"/>
+                            <line x1="50%" y1="50%" x2="80%" y2="30%" stroke="url(#iconGradient)" stroke-width="2"/>
+                            <line x1="20%" y1="20%" x2="30%" y2="70%" stroke="url(#iconGradient)" stroke-width="2"/>
+                            <line x1="50%" y1="50%" x2="80%" y2="75%" stroke="url(#iconGradient)" stroke-width="2"/>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                                <circle cx="24" cy="24" r="20" fill="url(#iconGradient)" opacity="0.1"/>
+                                <path d="M24 12v24M12 24h24" stroke="url(#iconGradient)" stroke-width="3" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <div class="stat-label">Natural Speech</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                                <circle cx="24" cy="16" r="6" fill="url(#iconGradient)" opacity="0.2"/>
+                                <circle cx="12" cy="32" r="6" fill="url(#iconGradient)" opacity="0.2"/>
+                                <circle cx="36" cy="32" r="6" fill="url(#iconGradient)" opacity="0.2"/>
+                                <path d="M24 22L12 26M24 22L36 26" stroke="url(#iconGradient)" stroke-width="2"/>
+                            </svg>
+                        </div>
+                        <div class="stat-label">AI-Powered</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                                <path d="M24 8L28 20L40 24L28 28L24 40L20 28L8 24L20 20L24 8Z" fill="url(#iconGradient)" opacity="0.2"/>
+                                <path d="M24 8L28 20L40 24L28 28L24 40L20 28L8 24L20 20L24 8Z" stroke="url(#iconGradient)" stroke-width="2" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <div class="stat-label">Real-Time</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="section" id="features">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Everything you need</h2>
+                <p class="section-description">Powerful features to transform your brainstorming sessions</p>
+            </div>
+
+            <div class="bento-grid">
+                <div class="bento-card noise">
+                    <div class="bento-icon">
+                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+                            <rect x="8" y="24" width="48" height="32" rx="8" fill="url(#iconGradient)" opacity="0.1"/>
+                            <circle cx="32" cy="40" r="12" fill="url(#iconGradient)" opacity="0.2"/>
+                            <path d="M32 32v16M24 40h16" stroke="url(#iconGradient)" stroke-width="3" stroke-linecap="round"/>
+                            <path d="M20 24L32 12L44 24" stroke="url(#iconGradient)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <h3 class="bento-title">Speech-to-Text Excellence</h3>
+                    <p class="bento-description">Capture every word with state-of-the-art speech recognition. No typing, no distractions—just natural conversation that flows seamlessly into your knowledge graph.</p>
+                    <div class="decoration-blob"></div>
+                </div>
+
+                <div class="bento-card noise">
+                    <div class="bento-icon">
+                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+                            <circle cx="32" cy="20" r="8" fill="url(#iconGradient)" opacity="0.2"/>
+                            <circle cx="16" cy="44" r="6" fill="url(#iconGradient)" opacity="0.2"/>
+                            <circle cx="48" cy="44" r="6" fill="url(#iconGradient)" opacity="0.2"/>
+                            <circle cx="32" cy="44" r="6" fill="url(#iconGradient)" opacity="0.2"/>
+                            <path d="M32 28L16 38M32 28L48 38M32 28L32 38" stroke="url(#iconGradient)" stroke-width="2.5" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <h3 class="bento-title">AI-Powered Graphs</h3>
+                    <p class="bento-description">Watch your ideas transform into intelligent, interconnected knowledge graphs in real-time.</p>
+                    <div class="decoration-blob"></div>
+                </div>
+
+                <div class="bento-card noise">
+                    <div class="bento-icon">
+                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+                            <circle cx="32" cy="16" r="6" fill="url(#iconGradient)" opacity="0.2"/>
+                            <circle cx="16" cy="32" r="6" fill="url(#iconGradient)" opacity="0.2"/>
+                            <circle cx="48" cy="32" r="6" fill="url(#iconGradient)" opacity="0.2"/>
+                            <circle cx="32" cy="48" r="6" fill="url(#iconGradient)" opacity="0.2"/>
+                            <path d="M28 20L20 28M36 20L44 28M20 36L28 44M44 36L36 44" stroke="url(#iconGradient)" stroke-width="2.5" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <h3 class="bento-title">Live Updates</h3>
+                    <p class="bento-description">See connections emerge as your discussion evolves, with smooth updates every 5-10 seconds.</p>
+                    <div class="decoration-blob"></div>
+                </div>
+
+                <div class="bento-card noise">
+                    <div class="bento-icon">
+                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+                            <path d="M8 16h48M8 32h48M8 48h48" stroke="url(#iconGradient)" stroke-width="3" stroke-linecap="round" opacity="0.3"/>
+                            <rect x="12" y="12" width="40" height="8" rx="4" fill="url(#iconGradient)" opacity="0.2"/>
+                            <rect x="12" y="28" width="30" height="8" rx="4" fill="url(#iconGradient)" opacity="0.2"/>
+                            <rect x="12" y="44" width="35" height="8" rx="4" fill="url(#iconGradient)" opacity="0.2"/>
+                        </svg>
+                    </div>
+                    <h3 class="bento-title">Smart Transcription</h3>
+                    <p class="bento-description">Full conversation history with intelligent context understanding.</p>
+                    <div class="decoration-blob"></div>
+                </div>
+
+                <div class="bento-card noise">
+                    <div class="bento-icon">
+                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+                            <rect x="8" y="8" width="48" height="48" rx="8" fill="url(#iconGradient)" opacity="0.1"/>
+                            <path d="M24 32L28 36L40 24" stroke="url(#iconGradient)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                            <circle cx="44" cy="20" r="8" fill="url(#iconGradient)" opacity="0.2"/>
+                        </svg>
+                    </div>
+                    <h3 class="bento-title">Export & Share</h3>
+                    <p class="bento-description">Export your knowledge graphs and transcripts for future reference.</p>
+                    <div class="decoration-blob"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="section" id="how-it-works">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">How it works</h2>
+                <p class="section-description">Three simple steps to visualize your ideas</p>
+            </div>
+
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-card noise">
+                        <div class="timeline-number">1</div>
+                        <div class="timeline-icon">
+                            <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+                                <path d="M25 35c0-5.523 4.477-10 10-10h10c5.523 0 10 4.477 10 10v10c0 5.523-4.477 10-10 10H35c-5.523 0-10-4.477-10-10V35z" fill="url(#iconGradient)" opacity="0.2"/>
+                                <path d="M40 25V20M40 60V55M25 40H20M60 40H55" stroke="url(#iconGradient)" stroke-width="3" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <h3 class="timeline-title">Speak Naturally</h3>
+                        <p class="timeline-description">Start your brainstorming session and speak as you normally would. No special setup required.</p>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-card noise">
+                        <div class="timeline-number">2</div>
+                        <div class="timeline-icon">
+                            <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+                                <circle cx="40" cy="25" r="8" fill="url(#iconGradient)" opacity="0.2"/>
+                                <circle cx="25" cy="45" r="6" fill="url(#iconGradient)" opacity="0.2"/>
+                                <circle cx="55" cy="45" r="6" fill="url(#iconGradient)" opacity="0.2"/>
+                                <circle cx="40" cy="55" r="6" fill="url(#iconGradient)" opacity="0.2"/>
+                                <path d="M40 33L25 39M40 33L55 39M25 45L40 49M55 45L40 49" stroke="url(#iconGradient)" stroke-width="2.5" stroke-linecap="round"/>
+                                <circle cx="40" cy="40" r="25" stroke="url(#iconGradient)" stroke-width="2" opacity="0.3" stroke-dasharray="4 4"/>
+                            </svg>
+                        </div>
+                        <h3 class="timeline-title">AI Processes</h3>
+                        <p class="timeline-description">Our AI listens, transcribes, and intelligently structures your ideas into meaningful concepts and relationships.</p>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-card noise">
+                        <div class="timeline-number">3</div>
+                        <div class="timeline-icon">
+                            <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+                                <circle cx="40" cy="20" r="6" fill="url(#iconGradient)" opacity="0.3"/>
+                                <circle cx="20" cy="40" r="6" fill="url(#iconGradient)" opacity="0.3"/>
+                                <circle cx="60" cy="40" r="6" fill="url(#iconGradient)" opacity="0.3"/>
+                                <circle cx="30" cy="60" r="6" fill="url(#iconGradient)" opacity="0.3"/>
+                                <circle cx="50" cy="60" r="6" fill="url(#iconGradient)" opacity="0.3"/>
+                                <path d="M37 24L24 36M43 24L56 36M24 44L27 56M56 44L53 56M33 63H47" stroke="url(#iconGradient)" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <h3 class="timeline-title">Watch It Grow</h3>
+                        <p class="timeline-description">See your knowledge graph evolve live, revealing connections and insights you might have missed.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Use Cases -->
+    <section class="section" id="use-cases">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Built for every team</h2>
+                <p class="section-description">From startups to enterprises, MindsBloom adapts to your workflow</p>
+            </div>
+
+            <div class="use-cases-grid">
+                <div class="use-case-card noise">
+                    <div class="use-case-icon-wrapper">
+                        <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+                            <circle cx="28" cy="18" r="6" fill="url(#iconGradient)" opacity="0.2"/>
+                            <circle cx="16" cy="38" r="5" fill="url(#iconGradient)" opacity="0.2"/>
+                            <circle cx="40" cy="38" r="5" fill="url(#iconGradient)" opacity="0.2"/>
+                            <path d="M28 24L16 33M28 24L40 33" stroke="url(#iconGradient)" stroke-width="2.5" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <div class="use-case-content">
+                        <h3>Team Brainstorming</h3>
+                        <p>Capture every idea in fast-paced team sessions. Perfect for sprint planning and ideation.</p>
+                    </div>
+                </div>
+
+                <div class="use-case-card noise">
+                    <div class="use-case-icon-wrapper">
+                        <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+                            <rect x="8" y="16" width="40" height="28" rx="4" fill="url(#iconGradient)" opacity="0.1"/>
+                            <path d="M14 22H38M14 28H38M14 34H28" stroke="url(#iconGradient)" stroke-width="2.5" stroke-linecap="round"/>
+                            <circle cx="42" cy="38" r="8" fill="url(#iconGradient)" opacity="0.2"/>
+                        </svg>
+                    </div>
+                    <div class="use-case-content">
+                        <h3>Meeting Facilitation</h3>
+                        <p>Keep meetings focused and actionable with visual structure and real-time insights.</p>
+                    </div>
+                </div>
+
+                <div class="use-case-card noise">
+                    <div class="use-case-icon-wrapper">
+                        <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+                            <rect x="12" y="8" width="32" height="40" rx="4" fill="url(#iconGradient)" opacity="0.1"/>
+                            <path d="M20 18H36M20 26H36M20 34H30" stroke="url(#iconGradient)" stroke-width="2.5" stroke-linecap="round"/>
+                            <circle cx="42" cy="42" r="8" stroke="url(#iconGradient)" stroke-width="2.5"/>
+                        </svg>
+                    </div>
+                    <div class="use-case-content">
+                        <h3>Research Discussions</h3>
+                        <p>Map complex research topics and discover hidden connections between concepts.</p>
+                    </div>
+                </div>
+
+                <div class="use-case-card noise">
+                    <div class="use-case-icon-wrapper">
+                        <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+                            <path d="M28 8L32 20L44 24L32 28L28 40L24 28L12 24L24 20L28 8Z" fill="url(#iconGradient)" opacity="0.2"/>
+                            <path d="M28 8L32 20L44 24L32 28L28 40L24 28L12 24L24 20L28 8Z" stroke="url(#iconGradient)" stroke-width="2" stroke-linejoin="round"/>
+                            <circle cx="40" cy="40" r="6" fill="url(#iconGradient)" opacity="0.2"/>
+                        </svg>
+                    </div>
+                    <div class="use-case-content">
+                        <h3>Creative Workshops</h3>
+                        <p>Unleash creativity with visual thinking tools that spark new ideas and connections.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="section">
+        <div class="container" style="text-align: center;">
+            <h2 class="section-title" style="margin-bottom: 24px;">Ready to transform your brainstorming?</h2>
+            <p class="section-description" style="margin-bottom: 48px; max-width: 600px; margin-left: auto; margin-right: auto;">
+                Join teams already visualizing their best ideas with MindsBloom
+            </p>
+            <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
+                <button class="btn btn-primary">Start Brainstorming</button>
+                <button class="btn btn-secondary">Watch Demo</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <p class="footer-tagline">Built for thinkers, by thinkers</p>
+                <div class="social-links">
+                    <a href="#" class="social-link">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <path d="M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z" stroke="url(#iconGradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </a>
+                    <a href="#" class="social-link">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2z" stroke="url(#iconGradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <circle cx="4" cy="4" r="2" stroke="url(#iconGradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </a>
+                    <a href="#" class="social-link">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0020 4.77 5.07 5.07 0 0019.91 1S18.73.65 16 2.48a13.38 13.38 0 00-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 005 4.77a5.44 5.44 0 00-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 009 18.13V22" stroke="url(#iconGradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </a>
+                </div>
+                <p class="footer-copyright">MindsBloom © 2024. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Smooth scroll
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Scroll animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -100px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        // Observe animated elements
+        document.querySelectorAll('.bento-card, .timeline-card, .use-case-card, .stat-card').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(30px)';
+            el.style.transition = 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
+            observer.observe(el);
+        });
+    </script>
+</body>
+</html>
