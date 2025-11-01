@@ -1,0 +1,23 @@
+body {
+  font-family: system-ui, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #fafafa;
+  margin: 0;
+  padding: 20px;
+}
+
+h1 {
+  font-size: 1.2rem;
+  font-weight: 500;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+#chart {
+  width: 90vw;
+  max-width: 900px;
+  height: 90vw;
+  max-height: 900px;
+}
