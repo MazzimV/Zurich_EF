@@ -6,12 +6,18 @@ It performs NLP analysis to identify entities, key phrases, concepts, questions,
 """
 
 import re
+import os
+import json
 from typing import Dict, List, Optional, Set, Tuple
 from dataclasses import dataclass, asdict
 from datetime import datetime
 import spacy
 from rake_nltk import Rake
 import nltk
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Download required NLTK data (run once)
 try:
@@ -109,13 +115,17 @@ class FeatureExtractor:
     3. Graph Generation - Create graph structure from clustered features
     """
     
-    def __init__(self, spacy_model: str = "en_core_web_sm"):
+    def __init__(self, spacy_model: str = "en_core_web_sm", 
+                 use_llm_filter: bool = True,
+                 anthropic_api_key: Optional[str] = None):
         """
         Initialize the feature extractor.
         
         Args:
             spacy_model: Name of spaCy model to load. Defaults to "en_core_web_sm"
                        For better performance, use "en_core_web_md" or "en_core_web_lg"
+            use_llm_filter: Whether to use Anthropic LLM to filter key phrases for relevance
+            anthropic_api_key: Anthropic API key (if not provided, reads from ANTHROPIC_API_KEY env var)
         """
         try:
             self.nlp = spacy.load(spacy_model)
@@ -126,6 +136,22 @@ class FeatureExtractor:
             )
         
         self.rake = Rake()
+        self.use_llm_filter = use_llm_filter
+        
+        # Initialize Anthropic client if LLM filtering is enabled
+        self.anthropic_client = None
+        if use_llm_filter:
+            try:
+                from anthropic import Anthropic
+                api_key = anthropic_api_key or os.getenv('ANTHROPIC_API_KEY')
+                if api_key:
+                    self.anthropic_client = Anthropic(api_key=api_key)
+                else:
+                    print("Warning: ANTHROPIC_API_KEY not found. LLM filtering disabled.")
+                    self.use_llm_filter = False
+            except ImportError:
+                print("Warning: anthropic package not installed. LLM filtering disabled.")
+                self.use_llm_filter = False
         
         # Patterns for detecting actions
         self.action_patterns = [
@@ -364,10 +390,92 @@ class FeatureExtractor:
         return decisions
     
     def _extract_key_phrases(self, text: str) -> List[str]:
-        """Extract key phrases using RAKE algorithm"""
+        """
+        Extract key phrases using RAKE algorithm, optionally filtered by LLM for relevance.
+        
+        Args:
+            text: Input text to extract phrases from
+            
+        Returns:
+            List of relevant key phrases
+        """
         self.rake.extract_keywords_from_text(text)
-        phrases = self.rake.get_ranked_phrases()
-        return phrases[:15]  # Top 15 key phrases
+        phrases = self.rake.get_ranked_phrases()[:15]  # Top 15 key phrases
+        
+        # Filter using LLM if enabled
+        if self.use_llm_filter and self.anthropic_client and phrases:
+            phrases = self._filter_key_phrases_with_llm(phrases, text)
+        
+        return phrases
+    
+    def _filter_key_phrases_with_llm(self, phrases: List[str], context_text: str) -> List[str]:
+        """
+        Use Anthropic LLM to filter key phrases and keep only relevant ones.
+        
+        Args:
+            phrases: List of extracted key phrases to filter
+            context_text: Original text context for better relevance judgment
+            
+        Returns:
+            Filtered list of relevant key phrases
+        """
+        if not phrases or not self.anthropic_client:
+            return phrases
+        
+        try:
+            # Build prompt for LLM to evaluate relevance
+            prompt = f"""You are analyzing key phrases extracted from a brainstorming discussion transcript.
+
+ORIGINAL TEXT:
+{context_text[:1000]}
+
+EXTRACTED KEY PHRASES:
+{json.dumps(phrases, indent=2)}
+
+Your task: Identify which key phrases are ACTUALLY RELEVANT and meaningful for understanding the discussion topics. 
+
+Filter out:
+- Generic words/phrases ("okay", "let", "think", "really need")
+- Incomplete phrases ("confusing right", "time users")
+- Common filler words
+- Phrases that don't convey substantive meaning
+
+Keep only:
+- Specific topics, concepts, or meaningful phrases
+- Technical terms, product names, features
+- Actionable items or decisions
+- Important entities or themes
+
+Return ONLY a JSON array of the relevant phrases, nothing else. Format: ["phrase1", "phrase2", ...]
+
+RELEVANT PHRASES:"""
+            
+            message = self.anthropic_client.messages.create(
+                model="claude-3-haiku-20240307",  # Fast and cheap model
+                max_tokens=500,
+                messages=[{
+                    "role": "user",
+                    "content": prompt
+                }]
+            )
+            
+            response_text = message.content[0].text.strip()
+            
+            # Extract JSON from response (handle markdown code blocks)
+            json_match = re.search(r'\[.*\]', response_text, re.DOTALL)
+            if json_match:
+                filtered_phrases = json.loads(json_match.group(0))
+                # Ensure all returned phrases were in original list
+                filtered_phrases = [p for p in filtered_phrases if p in phrases]
+                return filtered_phrases
+            else:
+                # Fallback: return original if parsing fails
+                print(f"Warning: Could not parse LLM response, using original phrases")
+                return phrases
+                
+        except Exception as e:
+            print(f"Warning: LLM filtering failed ({str(e)}), using original phrases")
+            return phrases
     
     def _is_meaningful_phrase(self, phrase: str) -> bool:
         """Check if a phrase is meaningful (not just stop words)"""
