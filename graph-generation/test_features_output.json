@@ -3,26 +3,26 @@
     {
       "text": "mobile app",
       "label": "PRODUCT",
-      "start_char": 18,
-      "end_char": 27,
+      "start_char": 20,
+      "end_char": 30,
       "confidence": 0.9
     }
   ],
   "concepts": [
     {
       "text": "user experience",
-      "importance_score": 0.8,
+      "importance_score": 0.9,
       "frequency": 1,
       "positions": [
-        0
+        45
       ]
     },
     {
       "text": "onboarding flow",
-      "importance_score": 0.7,
+      "importance_score": 0.8,
       "frequency": 1,
       "positions": [
-        0
+        98
       ]
     }
   ],
@@ -32,29 +32,30 @@
       "text": "focus on user experience",
       "action_verb": "focus",
       "confidence": 0.8,
-      "start_char": 29,
-      "end_char": 51
+      "start_char": 40,
+      "end_char": 70
     },
     {
-      "text": "redesign the mobile app",
+      "text": "redesign mobile app",
       "action_verb": "redesign",
       "confidence": 0.8,
-      "start_char": 18,
-      "end_char": 37
+      "start_char": 10,
+      "end_char": 35
     }
   ],
   "decisions": [
     {
       "text": "need to focus on user experience",
-      "decision_type": "commitment",
+      "decision_type": "plan",
       "confidence": 0.8,
-      "start_char": 29,
-      "end_char": 54
+      "start_char": 35,
+      "end_char": 75
     }
   ],
   "key_phrases": [
     "mobile app redesign",
     "user experience",
+    "first-time users",
     "onboarding flow"
   ],
   "sentences": [
@@ -66,9 +67,8 @@
     "text_length": 179,
     "word_count": 30,
     "sentence_count": 3,
-    "extraction_timestamp": "2025-11-01T14:20:58.422236Z",
-    "llm_provider": "anthropic",
-    "llm_model": "claude-3-haiku-20240307",
+    "extraction_timestamp": "2025-11-01T14:27:14.636747Z",
+    "llm_model": "claude-3-5-haiku-20241022",
     "session_id": "demo-session-123",
     "timestamp": "2025-11-01T10:30:00Z",
     "chunk_id": 1
