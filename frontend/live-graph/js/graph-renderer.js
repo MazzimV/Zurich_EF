@@ -10,8 +10,8 @@ class GraphRenderer {
     this.container = d3.select(`#${containerId}`);
 
     // Configuration
-    this.width = options.width || 1200;
-    this.height = options.height || 800;
+    this.width = options.width || 600;
+    this.height = options.height || 500;
     this.nodeRadiusScale = options.nodeRadiusScale || [5, 30];
     this.edgeWidthScale = options.edgeWidthScale || [1, 5];
 

@@ -32,9 +32,9 @@ class TranscriptDisplay {
     const header = document.createElement('div');
     header.className = 'transcript-header';
     header.innerHTML = `
-      <h3>Transcript</h3>
+      <h3>transcript</h3>
       <div class="transcript-controls">
-        <button id="clear-transcript" class="btn-secondary">Clear</button>
+        <button id="clear-transcript" class="btn-secondary">clear</button>
       </div>
     `;
     
