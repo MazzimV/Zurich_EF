@@ -1,0 +1,69 @@
+{
+  "entities": [
+    {
+      "text": "mobile app",
+      "label": "PRODUCT",
+      "start_char": 22,
+      "end_char": 32,
+      "confidence": 0.9
+    }
+  ],
+  "concepts": [
+    {
+      "text": "user experience",
+      "importance_score": 0.9,
+      "frequency": 1,
+      "positions": [
+        45
+      ]
+    },
+    {
+      "text": "onboarding flow",
+      "importance_score": 0.8,
+      "frequency": 1,
+      "positions": [
+        98
+      ]
+    }
+  ],
+  "questions": [],
+  "actions": [
+    {
+      "text": "focus on user experience",
+      "action_verb": "focus",
+      "confidence": 0.8,
+      "start_char": 38,
+      "end_char": 68
+    }
+  ],
+  "decisions": [
+    {
+      "text": "redesign mobile app",
+      "decision_type": "plan",
+      "confidence": 0.9,
+      "start_char": 16,
+      "end_char": 36
+    }
+  ],
+  "key_phrases": [
+    "mobile app redesign",
+    "user experience",
+    "first-time users",
+    "onboarding flow"
+  ],
+  "sentences": [
+    "Okay, so let's talk about the mobile app redesign",
+    "I think we really need to focus on user experience, especially for first-time users",
+    "The onboarding flow is confusing right now"
+  ],
+  "metadata": {
+    "text_length": 179,
+    "word_count": 30,
+    "sentence_count": 3,
+    "extraction_timestamp": "2025-11-01T14:24:05.158169Z",
+    "llm_model": "claude-3-5-haiku-20241022",
+    "session_id": "demo-session-123",
+    "timestamp": "2025-11-01T10:30:00Z",
+    "chunk_id": 1
+  }
+}

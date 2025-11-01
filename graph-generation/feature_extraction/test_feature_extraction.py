@@ -1,15 +1,33 @@
 """
-Test script for feature extraction module
+Test script for feature extraction module (Claude-based)
 """
 
 import json
+import os
+import sys
+from pathlib import Path
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent))
+
 from feature_extractor import FeatureExtractor, extract_features
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 def test_basic_extraction():
     """Test basic feature extraction"""
     print("=" * 60)
-    print("Testing Basic Feature Extraction")
+    print("Testing Basic Feature Extraction (Claude-based)")
     print("=" * 60)
+    
+    # Check for API key
+    api_key = os.getenv('ANTHROPIC_API_KEY')
+    if not api_key:
+        print("⚠ API key not found!")
+        print("   Set ANTHROPIC_API_KEY in .env file or environment variable.")
+        return None
     
     test_text = """
     Okay, so let's talk about the mobile app redesign. I think we really need to focus on user experience, 
@@ -25,6 +43,7 @@ def test_basic_extraction():
     print(f"\nText length: {len(test_text)} characters")
     print(f"Word count: {features.metadata['word_count']}")
     print(f"Sentence count: {features.metadata['sentence_count']}")
+    print(f"Claude Model: {features.metadata.get('llm_model', 'unknown')}")
     
     print(f"\n{'='*60}")
     print(f"ENTITIES ({len(features.entities)})")
@@ -72,12 +91,19 @@ def test_with_sample_transcript():
     print("Testing with Sample Transcript")
     print("=" * 60)
     
+    # Check for API key
+    api_key = os.getenv('ANTHROPIC_API_KEY')
+    if not api_key:
+        print("⚠ API key not found! Skipping this test.")
+        return None
+    
     # Load sample transcript
     try:
-        with open('../shared/examples/sample-transcript.json', 'r') as f:
+        with open('../../shared/examples/sample-transcript.json', 'r') as f:
             transcript_data = json.load(f)
         
         text = transcript_data['text']
+        
         extractor = FeatureExtractor()
         features = extractor.extract(
             text, 
@@ -117,6 +143,12 @@ def test_empty_text():
     print("Testing Edge Case: Empty Text")
     print("=" * 60)
     
+    # Check for API key
+    api_key = os.getenv('ANTHROPIC_API_KEY')
+    if not api_key:
+        print("⚠ API key not found! Skipping this test.")
+        return None
+    
     extractor = FeatureExtractor()
     features = extractor.extract("")
     
@@ -138,11 +170,10 @@ if __name__ == "__main__":
         test_empty_text()
         
         print("\n\n" + "=" * 60)
-        print("ALL TESTS PASSED ✓")
+        print("ALL TESTS COMPLETED ✓")
         print("=" * 60)
         
     except Exception as e:
         print(f"\n❌ Error: {e}")
         import traceback
         traceback.print_exc()
-

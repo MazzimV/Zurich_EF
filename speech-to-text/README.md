@@ -2,6 +2,14 @@
 
 Captures audio input and converts it to text transcripts in real-time.
 
+## 📚 Documentation
+
+- **[QUICKSTART.md](./QUICKSTART.md)** - Get running in 5 minutes
+- **[INTEGRATION.md](./INTEGRATION.md)** - Complete API reference & integration guide ⭐
+- **[README.md](./README.md)** - This file (component overview)
+- **[../docs/architecture.md](../docs/architecture.md)** - System architecture
+- **[../docs/graph-schema.md](../docs/graph-schema.md)** - Graph data format
+
 ## Responsibility
 
 - Capture audio from microphone or file
