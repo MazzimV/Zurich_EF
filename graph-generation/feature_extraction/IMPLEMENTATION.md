@@ -48,7 +48,7 @@ extractor = FeatureExtractor(
 **Higher quality**:
 ```python
 extractor = FeatureExtractor(
-    llm_model="claude-3-5-sonnet-20241022"  # Better quality, slower
+    llm_model="claude-sonnet-4-5-20250929"  # Claude Sonnet 4.5 - best quality
 )
 ```
 
