@@ -1,7 +1,7 @@
 """
-Transcription service for converting audio to text using OpenAI Whisper API.
+Transcription service for converting audio to text using OpenAI GPT-4o Transcribe API.
 
-Handles API communication, error handling, retries, and response processing.
+Handles API communication, error handling, retries, response processing, and speaker diarization.
 """
 
 import os
@@ -25,11 +25,12 @@ class TranscriptionError(Exception):
 
 class TranscriptionService:
     """
-    Service for transcribing audio using OpenAI Whisper API.
+    Service for transcribing audio using OpenAI GPT-4o Transcribe API.
 
     Handles:
     - API authentication
     - Audio transcription with retry logic
+    - Speaker diarization (identifies who's speaking)
     - Error handling and logging
     - Response validation
     """
@@ -37,7 +38,7 @@ class TranscriptionService:
     def __init__(
         self,
         api_key: Optional[str] = None,
-        model: str = "whisper-1",
+        model: str = "gpt-4o-transcribe-diarize",
         max_retries: int = 3,
         retry_delay: float = 1.0
     ):
@@ -46,7 +47,7 @@ class TranscriptionService:
 
         Args:
             api_key: OpenAI API key (if None, reads from OPENAI_API_KEY env var)
-            model: Whisper model to use (default: 'whisper-1')
+            model: Transcription model to use (default: 'gpt-4o-transcribe-diarize')
             max_retries: Maximum number of retry attempts (default: 3)
             retry_delay: Initial delay between retries in seconds (default: 1.0)
         """
@@ -75,10 +76,11 @@ class TranscriptionService:
         audio_data: bytes,
         filename: str = "audio.wav",
         language: Optional[str] = None,
-        prompt: Optional[str] = None
+        prompt: Optional[str] = None,
+        include_speaker_labels: bool = True
     ) -> str:
         """
-        Transcribe audio data to text using OpenAI Whisper API.
+        Transcribe audio data to text using OpenAI GPT-4o Transcribe API with speaker diarization.
 
         Implements retry logic with exponential backoff for reliability.
 
@@ -87,9 +89,10 @@ class TranscriptionService:
             filename: Filename to send to API (default: 'audio.wav')
             language: Optional ISO-639-1 language code (e.g., 'en', 'es')
             prompt: Optional prompt to guide the model's style
+            include_speaker_labels: Whether to include speaker labels in output (default: True)
 
         Returns:
-            str: Transcribed text
+            str: Transcribed text with speaker labels (e.g., "A: Hello\nB: Hi there")
 
         Raises:
             TranscriptionError: If transcription fails after all retries
@@ -107,7 +110,7 @@ class TranscriptionService:
                 audio_file = io.BytesIO(audio_data)
                 audio_file.name = filename
 
-                # Call OpenAI Whisper API
+                # Call OpenAI GPT-4o Transcribe API with diarization
                 start_time = time.time()
 
                 response = self.client.audio.transcriptions.create(
@@ -115,15 +118,42 @@ class TranscriptionService:
                     file=audio_file,
                     language=language,
                     prompt=prompt,
-                    response_format="text"
+                    response_format="diarized_json"
                 )
 
                 elapsed_time = time.time() - start_time
 
-                # Extract text from response
-                if isinstance(response, str):
+                # Extract text from diarized response
+                # Response contains segments with speaker, text, start, end
+                if hasattr(response, 'segments') and response.segments:
+                    # Process segments with speaker labels
+                    segments = []
+                    current_speaker = None
+
+                    for segment in response.segments:
+                        speaker = getattr(segment, 'speaker', 'Unknown')
+                        segment_text = getattr(segment, 'text', '').strip()
+
+                        if not segment_text:
+                            continue
+
+                        # Include speaker label if enabled and speaker changed
+                        if include_speaker_labels:
+                            if speaker != current_speaker:
+                                segments.append(f"{speaker}: {segment_text}")
+                                current_speaker = speaker
+                            else:
+                                # Same speaker continuing, just add text
+                                segments.append(segment_text)
+                        else:
+                            segments.append(segment_text)
+
+                    text = " ".join(segments)
+                elif isinstance(response, str):
+                    # Fallback for plain text response
                     text = response
                 else:
+                    # Fallback for other response types
                     text = response.text if hasattr(response, 'text') else str(response)
 
                 # Clean and validate the transcript

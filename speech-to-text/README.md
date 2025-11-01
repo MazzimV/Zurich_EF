@@ -1,6 +1,6 @@
 # Speech-to-Text Component
 
-Captures audio input and converts it to text transcripts in real-time.
+Captures audio input and converts it to text transcripts in real-time with speaker diarization (identifies who's speaking).
 
 ## 📚 Documentation
 
@@ -13,22 +13,25 @@ Captures audio input and converts it to text transcripts in real-time.
 ## Responsibility
 
 - Capture audio from microphone or file
-- Convert speech to text using STT API
-- Emit transcript chunks every 5-10 seconds
+- Convert speech to text using OpenAI GPT-4o Transcribe API
+- Identify speakers using speaker diarization (A, B, C, etc.)
+- Emit transcript chunks every 5-10 seconds with speaker labels
 - Maintain session continuity
 
 ## Output Format
 
-This component outputs JSON transcript chunks:
+This component outputs JSON transcript chunks with speaker diarization:
 
 ```json
 {
   "timestamp": "2025-11-01T10:30:45Z",
-  "text": "So I think we should focus on the user experience",
+  "text": "A: So I think we should focus on the user experience B: Yes, I completely agree",
   "session_id": "session-123",
   "chunk_id": 42
 }
 ```
+
+Speaker labels (A, B, C, etc.) are automatically identified and included in the text.
 
 See `../shared/schemas/transcript.json` for the complete schema.
 
@@ -51,23 +54,25 @@ pip install -r requirements.txt
 Create a `.env` file:
 
 ```env
-# Choose your STT provider
-
-# Option 1: OpenAI Whisper
+# OpenAI Configuration
 OPENAI_API_KEY=your-api-key
-STT_PROVIDER=openai
-STT_MODEL=whisper-1
+WHISPER_MODEL=gpt-4o-transcribe-diarize
 
-# Option 2: Deepgram
-# DEEPGRAM_API_KEY=your-api-key
-# STT_PROVIDER=deepgram
-
-# Option 3: Local Whisper
-# STT_PROVIDER=local
+# Audio Settings
+CHUNK_DURATION_SECONDS=8
+OVERLAP_DURATION_SECONDS=1
+SAMPLE_RATE=16000
+SILENCE_THRESHOLD_SECONDS=2.0
 
 # Server config
-PORT=8001
-CHUNK_DURATION=5  # seconds between transcript chunks
+PORT=8005
+CORS_ORIGINS=http://localhost:3005
+
+# Features
+ENABLE_VAD=False
+
+# Logging
+LOG_LEVEL=INFO
 ```
 
 ## Development
@@ -284,14 +289,15 @@ curl http://localhost:8001/transcribe/stream?session_id=test-123
 
 ## STT Provider Comparison
 
-| Provider | Speed | Cost | Quality | Setup |
-|----------|-------|------|---------|-------|
-| OpenAI Whisper API | Fast | $0.006/min | Excellent | Easy |
-| Deepgram | Fastest | $0.0125/min | Excellent | Easy |
-| Local Whisper | Slow | Free | Good | Medium |
-| Google Speech-to-Text | Fast | $0.016/min | Excellent | Medium |
+| Provider | Speed | Cost | Quality | Speaker Diarization | Setup |
+|----------|-------|------|---------|---------------------|-------|
+| **OpenAI GPT-4o Transcribe** ⭐ | **Very Fast** | **$0.006/min** | **Excellent** | **Yes** | **Easy** |
+| OpenAI Whisper API | Fast | $0.006/min | Excellent | No | Easy |
+| Deepgram | Fastest | $0.0125/min | Excellent | Yes (extra cost) | Easy |
+| Local Whisper | Slow | Free | Good | No | Medium |
+| Google Speech-to-Text | Fast | $0.016/min | Excellent | Yes (extra cost) | Medium |
 
-**Recommendation for Hackathon**: OpenAI Whisper API (fast, cheap, reliable)
+**Current Implementation**: OpenAI GPT-4o Transcribe with speaker diarization (fast, accurate, identifies speakers automatically)
 
 ## Next Steps
 

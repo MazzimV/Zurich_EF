@@ -152,9 +152,9 @@ AudioCapture (capture.py)
     ↓
 AudioBuffer (buffer.py) ← Smart chunking (8s + 1s overlap)
     ↓
-TranscriptionService (transcription_service.py) ← OpenAI Whisper API
+TranscriptionService (transcription_service.py) ← OpenAI GPT-4o Transcribe (with speaker diarization)
     ↓
-SessionManager (session_manager.py) ← Track sessions
+SessionManager (session_manager.py) ← Track sessions & speaker labels
     ↓
 Flask API (main.py) ← SSE streaming
     ↓
@@ -163,6 +163,7 @@ Frontend (your React app)
 
 ## Key Features Implemented
 
+✅ **Speaker diarization** - Automatically identifies who's speaking (A, B, C, etc.)
 ✅ **8-second chunks** with 1-second overlap
 ✅ **Silence detection** for adaptive chunking
 ✅ **Smart deduplication** of overlapping text
