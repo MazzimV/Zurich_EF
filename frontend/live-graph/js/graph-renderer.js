@@ -242,12 +242,19 @@ class GraphRenderer {
       .attr('r', d => this._getNodeRadius(d))
       .attr('fill', d => d.color || '#3B82F6');
 
-    // Add label
+    // Add label (centered inside node)
     nodeEnter.append('text')
-      .attr('dx', d => this._getNodeRadius(d) + 5)
-      .attr('dy', '.35em')
-      .attr('font-size', '12px')
-      .attr('fill', '#1E3A8A')
+      .attr('text-anchor', 'middle')  // Center horizontally
+      .attr('dy', '.35em')  // Center vertically
+      .attr('font-size', d => {
+        // Dynamic font size based on node radius (importance)
+        const radius = this._getNodeRadius(d);
+        // Scale font from 8px (small nodes) to 14px (large nodes)
+        return Math.max(8, Math.min(14, radius * 0.3)) + 'px';
+      })
+      .attr('fill', '#FFFFFF')  // White text for visibility on colored backgrounds
+      .attr('font-weight', '500')
+      .style('pointer-events', 'none')  // Allow clicks to pass through to node
       .text(d => d.label);
 
     // Add title for hover tooltip
@@ -277,7 +284,11 @@ class GraphRenderer {
     this.nodeSelection.select('text')
       .transition()
       .duration(500)
-      .attr('dx', d => this._getNodeRadius(d) + 5)
+      .attr('text-anchor', 'middle')  // Keep centered
+      .attr('font-size', d => {
+        const radius = this._getNodeRadius(d);
+        return Math.max(8, Math.min(14, radius * 0.3)) + 'px';
+      })
       .text(d => d.label);
 
     this.nodeSelection.select('title')
