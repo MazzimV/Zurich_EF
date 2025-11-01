@@ -48,11 +48,18 @@ Your job: Generate a complete, updated knowledge graph as JSON.
 - Increase `importance` for nodes that are mentioned repeatedly
 - Decrease `importance` for nodes that haven't been mentioned in a while (optional)
 
-### 4. Create Meaningful Relationships (CRITICAL)
+### 4. Intelligent Grouping and Relationships (CRITICAL)
 - **Only create edges between nodes that have clear, direct, and meaningful relationships**
 - **DO NOT create connections just because nodes are related to the same topic or theme**
 - Example: If the conversation is about "dogs", don't connect every node about dogs (like "dog training", "dog breeds", "dog food") back to a main "dogs" node just because they're all about dogs. Only connect nodes if there's a meaningful relationship between them (e.g., "dog training" → "dog breeds" if specific breeds are mentioned for training)
-- Use appropriate edge types: `relates_to`, `causes`, `supports`, `contradicts`, `follows`, `elaborates`
+- **Smart Grouping**: When you see multiple concepts mentioned in the conversation that naturally belong together, create meaningful groupings through relationships or by recognizing hierarchical patterns (e.g., if someone mentions "features", "requirements", and "specifications" all in context of discussing app development, you can recognize they're related aspects of the same planning activity)
+- **Only group what's mentioned**: Do NOT create groupings or categories that weren't discussed. For example, don't create a "development tools" category node if the conversation only mentioned "React" and "Python" separately without discussing them as a group of tools
+- **Grouping examples**:
+  - ✅ GOOD: If conversation mentions "frontend", "backend", "database" while discussing app architecture → these can be grouped as related architectural components
+  - ✅ GOOD: If someone lists features like "reminders", "notifications", "alerts" together → recognize they're all notification-related features
+  - ❌ BAD: Creating a "technologies" node to group "React" and "Python" if they were mentioned separately in different contexts without being grouped in the conversation
+  - ❌ BAD: Creating arbitrary categories like "communication methods" if only "email" was mentioned without discussion of communication as a category
+- Use appropriate edge types: `relates_to`, `causes`, `supports`, `follows`, `elaborates`
 - Set `strength` based on how strong and direct the relationship is
 - Consider the conversation context when creating relationships:
   - **Brainstorming/idea generation**: Focus on relationships between ideas, concepts, and potential connections
