@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Live Graph Visualization - Brainstorm Tool</title>
+  <title>brot.ai - Live Graph Visualization</title>
   <link rel="stylesheet" href="css/style.css">
   <!-- D3.js v7 -->
   <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -12,64 +12,51 @@
   <div class="container">
     <!-- Header -->
     <header>
-      <h1>Live Graph Visualization</h1>
-      <p>Real-time knowledge graph from speech transcription</p>
+      <div class="header-content">
+        <div class="logo">brot.ai</div>
+        <nav class="header-nav">
+          <button class="mode-tab active" id="tab-test">Test Mode</button>
+          <button class="mode-tab" id="tab-live">Live Mode</button>
+        </nav>
+      </div>
     </header>
-
-    <!-- Mode Selector -->
-    <div class="mode-selector">
-      <button class="mode-tab active" id="tab-test">Test Mode</button>
-      <button class="mode-tab" id="tab-live">Live Mode (Orchestrator)</button>
-    </div>
-
-    <!-- Test Controls -->
-    <div class="test-controls" id="test-mode-panel">
-      <h4>Test Mode Controls</h4>
-      <div class="test-buttons">
-        <button class="btn-primary" id="test-static">Test 1: Load Static Graph</button>
-        <button class="btn-success" id="test-mock">Test 2: Start Mock Updates</button>
-        <button class="btn-warning" id="stop-mock" disabled>Stop Mock Updates</button>
-        <button class="btn-danger" id="clear-all">Clear All</button>
-      </div>
-      <div style="margin-top: 10px;">
-        <span class="status-indicator">
-          <span class="status-dot" id="status-dot"></span>
-          <span id="status-text">Ready</span>
-        </span>
-      </div>
-    </div>
 
     <!-- Live Mode Controls -->
     <div class="live-controls" id="live-mode-panel" style="display: none;">
       <h4>Live Mode - Real Orchestrator Connection</h4>
       <div class="config-section">
         <label for="orchestrator-url">Orchestrator URL:</label>
-        <input type="text" id="orchestrator-url" value="http://localhost:8003" style="width: 300px; padding: 6px; margin-left: 10px;">
+        <input type="text" id="orchestrator-url" value="http://localhost:8003">
         <button class="btn-secondary" id="check-health">Check Health</button>
       </div>
-      <div class="live-buttons" style="margin-top: 15px;">
+      <div class="live-buttons" style="margin-top: 16px;">
         <button class="btn-success" id="start-live-session">Start Live Session</button>
         <button class="btn-danger" id="stop-live-session" disabled>Stop Session</button>
         <button class="btn-secondary" id="get-session-state" disabled>Get State</button>
       </div>
-      <div style="margin-top: 10px;">
+      <div style="margin-top: 12px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
         <span class="status-indicator">
           <span class="status-dot" id="live-status-dot"></span>
           <span id="live-status-text">Not connected</span>
         </span>
-        <span id="session-id-display" style="margin-left: 15px; font-size: 13px; color: #666;"></span>
+        <span id="session-id-display" style="font-size: 12px; color: #475569; font-weight: 500; background: #DBEAFE; padding: 6px 12px; border-radius: 6px;"></span>
       </div>
     </div>
 
     <!-- Main Content -->
     <div class="main-content">
       <!-- Transcript Panel -->
-      <div class="transcript-panel">
-        <div id="transcript-display"></div>
+      <div class="transcript-container-panel">
+        <div class="transcript-header-wrapper">
+          <div id="transcript-header-container"></div>
+        </div>
+        <div class="transcript-panel">
+          <div id="transcript-display"></div>
+        </div>
       </div>
 
       <!-- Graph Panel -->
-      <div class="graph-panel">
+      <div class="graph-container-panel">
         <div class="graph-controls">
           <div class="graph-info">
             <strong>Version:</strong> <span id="graph-version">-</span> |
@@ -83,6 +70,28 @@
         </div>
         <div class="graph-container">
           <div id="graph-canvas"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Test Controls -->
+    <div class="test-controls-dropdown" id="test-mode-panel">
+      <button class="dropdown-header" id="test-controls-toggle">
+        <span>Test Mode Controls</span>
+        <span class="dropdown-icon">▼</span>
+      </button>
+      <div class="dropdown-content" id="test-controls-content" style="display: none;">
+        <div class="test-buttons">
+          <button class="btn-primary" id="test-static">Test 1: Load Static Graph</button>
+          <button class="btn-success" id="test-mock">Test 2: Start Mock Updates</button>
+          <button class="btn-warning" id="stop-mock" disabled>Stop Mock Updates</button>
+          <button class="btn-danger" id="clear-all">Clear All</button>
+        </div>
+        <div style="margin-top: 12px;">
+          <span class="status-indicator">
+            <span class="status-dot" id="status-dot"></span>
+            <span id="status-text">Ready</span>
+          </span>
         </div>
       </div>
     </div>
@@ -106,12 +115,22 @@
 
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', () => {
-      // Create graph renderer
+      // Create graph renderer - size dynamically to container
+      const graphContainer = document.getElementById('graph-canvas');
+      const getGraphSize = () => {
+        if (graphContainer) {
+          const rect = graphContainer.getBoundingClientRect();
+          return { width: Math.max(rect.width, 1200), height: Math.max(rect.height, 700) };
+        }
+        return { width: 1400, height: 900 };
+      };
+      
+      const size = getGraphSize();
       graphRenderer = new GraphRenderer('graph-canvas', {
-        width: 1200,
-        height: 800,
+        width: size.width,
+        height: size.height,
         nodeRadiusScale: [8, 35],
-        edgeWidthScale: [2, 6]  // Increased from [1, 5] for better visibility
+        edgeWidthScale: [2, 6]
       });
 
       // Create transcript display
@@ -361,6 +380,17 @@
       document.getElementById('tab-test').addEventListener('click', () => switchMode('test'));
       document.getElementById('tab-live').addEventListener('click', () => switchMode('live'));
 
+      // Test controls dropdown toggle
+      const toggle = document.getElementById('test-controls-toggle');
+      const content = document.getElementById('test-controls-content');
+      if (toggle && content) {
+        toggle.addEventListener('click', () => {
+          const isHidden = content.style.display === 'none';
+          content.style.display = isHidden ? 'block' : 'none';
+          toggle.classList.toggle('active', isHidden);
+        });
+      }
+
       // Health check
       document.getElementById('check-health').addEventListener('click', checkOrchestratorHealth);
 
@@ -383,6 +413,14 @@
       // Show/hide panels
       document.getElementById('test-mode-panel').style.display = mode === 'test' ? 'block' : 'none';
       document.getElementById('live-mode-panel').style.display = mode === 'live' ? 'block' : 'none';
+      
+      // Collapse test controls when switching away from test mode
+      if (mode !== 'test') {
+        const content = document.getElementById('test-controls-content');
+        const toggle = document.getElementById('test-controls-toggle');
+        if (content) content.style.display = 'none';
+        if (toggle) toggle.classList.remove('active');
+      }
 
       console.log(`Switched to ${mode} mode`);
     }
@@ -568,7 +606,10 @@
       const container = document.getElementById('graph-canvas');
       if (container && graphRenderer) {
         const rect = container.getBoundingClientRect();
-        graphRenderer.resize(rect.width, rect.height);
+        // Resize with minimum dimensions
+        const width = Math.max(rect.width, 1200);
+        const height = Math.max(rect.height, 700);
+        graphRenderer.resize(width, height);
       }
     });
   </script>

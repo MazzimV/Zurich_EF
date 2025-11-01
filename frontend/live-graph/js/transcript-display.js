@@ -27,20 +27,22 @@ class TranscriptDisplay {
     this.container.innerHTML = '';
     this.container.className = 'transcript-container';
 
-    // Header
+    // Header - check if there's a separate header container, otherwise create in main container
+    const headerContainer = document.getElementById('transcript-header-container');
     const header = document.createElement('div');
     header.className = 'transcript-header';
     header.innerHTML = `
       <h3>Transcript</h3>
       <div class="transcript-controls">
         <button id="clear-transcript" class="btn-secondary">Clear</button>
-        <label>
-          <input type="checkbox" id="auto-scroll" ${this.autoScroll ? 'checked' : ''}>
-          Auto-scroll
-        </label>
       </div>
     `;
-    this.container.appendChild(header);
+    
+    if (headerContainer) {
+      headerContainer.appendChild(header);
+    } else {
+      this.container.appendChild(header);
+    }
 
     // Transcript content area
     this.contentArea = document.createElement('div');
@@ -49,9 +51,6 @@ class TranscriptDisplay {
 
     // Event listeners
     document.getElementById('clear-transcript')?.addEventListener('click', () => this.clear());
-    document.getElementById('auto-scroll')?.addEventListener('change', (e) => {
-      this.autoScroll = e.target.checked;
-    });
   }
 
   /**
