@@ -1,0 +1,109 @@
+{
+  "name": "Football Conversation",
+  "children": [
+    {
+      "name": "Match Discussion",
+      "children": [
+        {
+          "name": "Teams",
+          "children": [
+            {"name": "Manchester City", "value": 50},
+            {"name": "Liverpool", "value": 40}
+          ]
+        },
+        {
+          "name": "Score",
+          "children": [
+            {"name": "Final 2-1", "value": 20},
+            {"name": "Late goal in extra time", "value": 15}
+          ]
+        },
+        {
+          "name": "Highlights",
+          "children": [
+            {"name": "De Bruyne’s assist", "value": 25},
+            {"name": "Salah’s counterattack", "value": 30},
+            {"name": "Goalkeeper saves", "value": 18}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Players",
+      "children": [
+        {
+          "name": "Performance",
+          "children": [
+            {"name": "De Bruyne was brilliant", "value": 35},
+            {"name": "Salah’s pace impressed everyone", "value": 30},
+            {"name": "Defenders struggled with pressure", "value": 25}
+          ]
+        },
+        {
+          "name": "Injuries",
+          "children": [
+            {"name": "Substitution after tackle", "value": 15},
+            {"name": "Fitness concerns before next match", "value": 10}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Tactics",
+      "children": [
+        {
+          "name": "Formation",
+          "children": [
+            {"name": "4-3-3 setup", "value": 20},
+            {"name": "Wing play dominance", "value": 18}
+          ]
+        },
+        {
+          "name": "Coaching",
+          "children": [
+            {"name": "Guardiola’s pressing style", "value": 25},
+            {"name": "Klopp’s counter-press", "value": 28}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Emotions",
+      "children": [
+        {
+          "name": "Fans",
+          "children": [
+            {"name": "Excitement after first goal", "value": 22},
+            {"name": "Disappointment with refereeing", "value": 18}
+          ]
+        },
+        {
+          "name": "Commentators",
+          "children": [
+            {"name": "Praised technical quality", "value": 15},
+            {"name": "Noted physical intensity", "value": 12}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Aftermath",
+      "children": [
+        {
+          "name": "Post-Match Reactions",
+          "children": [
+            {"name": "Coach interviews", "value": 20},
+            {"name": "Fan discussions online", "value": 15}
+          ]
+        },
+        {
+          "name": "Next Steps",
+          "children": [
+            {"name": "Upcoming fixtures", "value": 10},
+            {"name": "Training focus areas", "value": 8}
+          ]
+        }
+      ]
+    }
+  ]
+}
