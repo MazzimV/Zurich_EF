@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Live Graph Visualization - Brainstorm Tool</title>
+  <title>brot.ai - Live Graph Visualization</title>
   <link rel="stylesheet" href="css/style.css">
   <!-- D3.js v7 -->
   <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -12,75 +12,44 @@
   <div class="container">
     <!-- Header -->
     <header>
-      <h1>Live Graph Visualization</h1>
-      <p>Real-time knowledge graph from speech transcription</p>
+      <div class="header-content">
+        <div class="header-left">
+          <div class="live-buttons">
+            <button class="btn-success" id="start-live-session">start live session</button>
+            <button class="btn-warning" id="pause-live-session" disabled>pause session</button>
+            <button class="btn-success" id="resume-live-session" disabled style="display: none;">resume session</button>
+            <button class="btn-danger" id="stop-live-session" disabled>stop session</button>
+            <button class="btn-secondary" id="get-session-state" disabled>get state</button>
+          </div>
+          <div class="status-indicator" style="margin-left: 12px;">
+            <span class="status-dot" id="live-status-dot"></span>
+            <span id="live-status-text">not connected</span>
+            <span id="session-id-display" style="margin-left: 15px; font-size: 13px; color: #666;"></span>
+          </div>
+        </div>
+        <div class="logo">brot.ai</div>
+      </div>
     </header>
-
-    <!-- Mode Selector -->
-    <div class="mode-selector">
-      <button class="mode-tab active" id="tab-test">Test Mode</button>
-      <button class="mode-tab" id="tab-live">Live Mode (Orchestrator)</button>
-    </div>
-
-    <!-- Test Controls -->
-    <div class="test-controls" id="test-mode-panel">
-      <h4>Test Mode Controls</h4>
-      <div class="test-buttons">
-        <button class="btn-primary" id="test-static">Test 1: Load Static Graph</button>
-        <button class="btn-success" id="test-mock">Test 2: Start Mock Updates</button>
-        <button class="btn-warning" id="stop-mock" disabled>Stop Mock Updates</button>
-        <button class="btn-danger" id="clear-all">Clear All</button>
-      </div>
-      <div style="margin-top: 10px;">
-        <span class="status-indicator">
-          <span class="status-dot" id="status-dot"></span>
-          <span id="status-text">Ready</span>
-        </span>
-      </div>
-    </div>
-
-    <!-- Live Mode Controls -->
-    <div class="live-controls" id="live-mode-panel" style="display: none;">
-      <h4>Live Mode - Real Orchestrator Connection</h4>
-      <div class="config-section">
-        <label for="orchestrator-url">Orchestrator URL:</label>
-        <input type="text" id="orchestrator-url" value="http://localhost:8003" style="width: 300px; padding: 6px; margin-left: 10px;">
-        <button class="btn-secondary" id="check-health">Check Health</button>
-      </div>
-      <div class="live-buttons" style="margin-top: 15px;">
-        <button class="btn-success" id="start-live-session">Start Live Session</button>
-        <button class="btn-warning" id="pause-live-session" disabled>Pause Session</button>
-        <button class="btn-success" id="resume-live-session" disabled style="display: none;">Resume Session</button>
-        <button class="btn-danger" id="stop-live-session" disabled>Stop Session</button>
-        <button class="btn-secondary" id="get-session-state" disabled>Get State</button>
-      </div>
-      <div style="margin-top: 10px;">
-        <span class="status-indicator">
-          <span class="status-dot" id="live-status-dot"></span>
-          <span id="live-status-text">Not connected</span>
-        </span>
-        <span id="session-id-display" style="margin-left: 15px; font-size: 13px; color: #666;"></span>
-      </div>
-    </div>
 
     <!-- Main Content -->
     <div class="main-content">
       <!-- Transcript Panel -->
-      <div class="transcript-panel">
-        <div id="transcript-display"></div>
+      <div class="transcript-container-panel">
+        <div class="transcript-header-wrapper">
+          <div id="transcript-header-container"></div>
+        </div>
+        <div class="transcript-panel">
+          <div id="transcript-display"></div>
+        </div>
       </div>
 
       <!-- Graph Panel -->
-      <div class="graph-panel">
+      <div class="graph-container-panel">
         <div class="graph-controls">
           <div class="graph-info">
-            <strong>Version:</strong> <span id="graph-version">-</span> |
-            <strong>Nodes:</strong> <span id="node-count">0</span> |
-            <strong>Edges:</strong> <span id="edge-count">0</span>
-          </div>
-          <div class="control-buttons">
-            <button class="btn-secondary" id="debug-edges">Debug Edges</button>
-            <button class="btn-secondary" id="reset-zoom">Reset Zoom</button>
+            <strong>version:</strong> <span id="graph-version">-</span> |
+            <strong>nodes:</strong> <span id="node-count">0</span> |
+            <strong>edges:</strong> <span id="edge-count">0</span>
           </div>
         </div>
         <div class="graph-container">
@@ -88,6 +57,7 @@
         </div>
       </div>
     </div>
+
   </div>
 
   <!-- Load components -->
@@ -108,12 +78,22 @@
 
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', () => {
-      // Create graph renderer
+      // Create graph renderer - size dynamically to container
+      const graphContainer = document.getElementById('graph-canvas');
+      const getGraphSize = () => {
+        if (graphContainer) {
+          const rect = graphContainer.getBoundingClientRect();
+          return { width: rect.width || 800, height: rect.height || 600 };
+        }
+        return { width: 800, height: 600 };
+      };
+      
+      const size = getGraphSize();
       graphRenderer = new GraphRenderer('graph-canvas', {
-        width: 1200,
-        height: 800,
+        width: size.width,
+        height: size.height,
         nodeRadiusScale: [8, 35],
-        edgeWidthScale: [2, 6]  // Increased from [1, 5] for better visibility
+        edgeWidthScale: [2, 6]
       });
 
       // Create transcript display
@@ -123,7 +103,6 @@
       });
 
       console.log('✅ Components initialized');
-      updateStatus('Ready', false);
 
       // Set up event listeners
       setupEventListeners();
@@ -135,44 +114,29 @@
      */
     function setupEventListeners() {
       // Test 1: Load static graph
-      document.getElementById('test-static').addEventListener('click', loadStaticGraph);
+      const testStaticBtn = document.getElementById('test-static');
+      if (testStaticBtn) {
+        testStaticBtn.addEventListener('click', loadStaticGraph);
+      }
 
       // Test 2: Start mock updates
-      document.getElementById('test-mock').addEventListener('click', startMockUpdates);
+      const testMockBtn = document.getElementById('test-mock');
+      if (testMockBtn) {
+        testMockBtn.addEventListener('click', startMockUpdates);
+      }
 
       // Stop mock updates
-      document.getElementById('stop-mock').addEventListener('click', stopMockUpdates);
+      const stopMockBtn = document.getElementById('stop-mock');
+      if (stopMockBtn) {
+        stopMockBtn.addEventListener('click', stopMockUpdates);
+      }
 
       // Clear all
-      document.getElementById('clear-all').addEventListener('click', clearAll);
+      const clearAllBtn = document.getElementById('clear-all');
+      if (clearAllBtn) {
+        clearAllBtn.addEventListener('click', clearAll);
+      }
 
-      // Debug edges
-      document.getElementById('debug-edges').addEventListener('click', () => {
-        const edges = document.querySelectorAll('.links line');
-        console.log('=== EDGE DEBUG ===');
-        console.log(`Total edges in DOM: ${edges.length}`);
-        edges.forEach((edge, i) => {
-          console.log(`Edge ${i}:`, {
-            x1: edge.getAttribute('x1'),
-            y1: edge.getAttribute('y1'),
-            x2: edge.getAttribute('x2'),
-            y2: edge.getAttribute('y2'),
-            stroke: edge.getAttribute('stroke'),
-            strokeWidth: edge.getAttribute('stroke-width'),
-            opacity: edge.style.opacity
-          });
-        });
-        console.log('Graph data edges:', graphRenderer.edges);
-      });
-
-      // Reset zoom
-      document.getElementById('reset-zoom').addEventListener('click', () => {
-        // Re-initialize graph (resets zoom/pan)
-        const stats = graphRenderer.getStats();
-        if (stats.nodeCount > 0) {
-          graphRenderer.simulation.alpha(0.3).restart();
-        }
-      });
     }
 
     /**
@@ -180,7 +144,7 @@
      */
     async function loadStaticGraph() {
       try {
-        updateStatus('Loading static graph...', true);
+        console.log('Loading static graph...');
         console.log('📂 Loading static graph...');
 
         // Fetch static graph JSON
@@ -205,13 +169,13 @@
           chunk_id: 0
         });
 
-        updateStatus('Static graph loaded', false);
+        console.log('Static graph loaded');
         console.log('✅ Static graph test complete');
 
       } catch (error) {
         console.error('❌ Failed to load static graph:', error);
         alert(`Failed to load static graph: ${error.message}`);
-        updateStatus('Error', false);
+        console.error('Error loading static graph');
       }
     }
 
@@ -231,7 +195,7 @@
       updateGraphInfo({ version: 0, nodes: [], edges: [] });
 
       console.log('🚀 Starting mock updates...');
-      updateStatus('Mock updates running', true);
+      console.log('Mock updates running');
 
       // Enable/disable buttons
       document.getElementById('test-mock').disabled = true;
@@ -248,7 +212,7 @@
         } else {
           // All updates processed
           stopMockUpdates();
-          updateStatus('Mock updates complete', false);
+          console.log('Mock updates complete');
           console.log('✅ All mock updates processed');
         }
       }, 3000);
@@ -290,7 +254,7 @@
       }
 
       console.log('⏹️  Mock updates stopped');
-      updateStatus('Stopped', false);
+      console.log('Mock updates stopped');
 
       // Re-enable buttons
       document.getElementById('test-mock').disabled = false;
@@ -314,7 +278,7 @@
       transcriptDisplay.clear();
       updateGraphInfo({ version: 0, nodes: [], edges: [] });
 
-      updateStatus('Ready', false);
+      console.log('All data cleared');
       console.log('✅ All data cleared');
     }
 
@@ -328,17 +292,11 @@
     }
 
     /**
-     * Update status indicator
+     * Update status indicator (deprecated - using live status indicator now)
      */
     function updateStatus(text, active) {
-      document.getElementById('status-text').textContent = text;
-      const dot = document.getElementById('status-dot');
-
-      if (active) {
-        dot.classList.add('active');
-      } else {
-        dot.classList.remove('active');
-      }
+      // This function is deprecated - status elements were removed
+      console.log('Status update (deprecated):', text, active);
     }
 
     /**
@@ -359,36 +317,87 @@
      * Set up live mode event listeners
      */
     function setupLiveModeListeners() {
-      // Mode tabs
-      document.getElementById('tab-test').addEventListener('click', () => switchMode('test'));
-      document.getElementById('tab-live').addEventListener('click', () => switchMode('live'));
-
-      // Health check
-      document.getElementById('check-health').addEventListener('click', checkOrchestratorHealth);
-
       // Session controls
-      document.getElementById('start-live-session').addEventListener('click', startLiveSession);
-      document.getElementById('pause-live-session').addEventListener('click', pauseLiveSession);
-      document.getElementById('resume-live-session').addEventListener('click', resumeLiveSession);
-      document.getElementById('stop-live-session').addEventListener('click', stopLiveSession);
-      document.getElementById('get-session-state').addEventListener('click', getSessionState);
+      const startBtn = document.getElementById('start-live-session');
+      const pauseBtn = document.getElementById('pause-live-session');
+      const resumeBtn = document.getElementById('resume-live-session');
+      const stopBtn = document.getElementById('stop-live-session');
+      const getStateBtn = document.getElementById('get-session-state');
+
+      if (startBtn) {
+        console.log('✅ Setting up start-live-session listener', startBtn);
+        startBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          console.log('🔵 start-live-session button clicked!');
+          try {
+            if (typeof startLiveSession === 'function') {
+              console.log('✅ Calling startLiveSession function...');
+              startLiveSession();
+            } else {
+              console.error('❌ startLiveSession function not found!', typeof startLiveSession);
+            }
+          } catch (error) {
+            console.error('❌ Error in start-live-session click handler:', error);
+          }
+        });
+      } else {
+        console.error('❌ start-live-session button not found!');
+      }
+
+      if (pauseBtn) {
+        pauseBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          if (typeof pauseLiveSession === 'function') {
+            pauseLiveSession();
+          }
+        });
+      }
+
+      if (resumeBtn) {
+        resumeBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          if (typeof resumeLiveSession === 'function') {
+            resumeLiveSession();
+          }
+        });
+      }
+
+      if (stopBtn) {
+        stopBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          if (typeof stopLiveSession === 'function') {
+            stopLiveSession();
+          }
+        });
+      }
+
+      if (getStateBtn) {
+        getStateBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          if (typeof getSessionState === 'function') {
+            getSessionState();
+          }
+        });
+      }
     }
 
     /**
-     * Switch between test and live mode
+     * Switch between test and live mode (deprecated - mode tabs removed)
      */
     function switchMode(mode) {
       currentMode = mode;
+      console.log(`Mode set to ${mode}`);
+    }
 
-      // Update tabs
-      document.getElementById('tab-test').classList.toggle('active', mode === 'test');
-      document.getElementById('tab-live').classList.toggle('active', mode === 'live');
+    // Orchestrator URL - hardcoded since input field removed
+    const ORCHESTRATOR_URL = 'http://localhost:8003';
 
-      // Show/hide panels
-      document.getElementById('test-mode-panel').style.display = mode === 'test' ? 'block' : 'none';
-      document.getElementById('live-mode-panel').style.display = mode === 'live' ? 'block' : 'none';
-
-      console.log(`Switched to ${mode} mode`);
+    /**
+     * Get orchestrator URL (returns hardcoded value)
+     */
+    function getOrchestratorUrl() {
+      return ORCHESTRATOR_URL;
     }
 
     /**
@@ -396,8 +405,8 @@
      */
     async function checkOrchestratorHealth() {
       try {
-        const url = document.getElementById('orchestrator-url').value;
-        updateLiveStatus('Checking health...', false);
+        const url = getOrchestratorUrl();
+        updateLiveStatus('checking health...', false);
 
         const response = await fetch(`${url}/health`);
         if (!response.ok) {
@@ -407,12 +416,12 @@
         const health = await response.json();
         console.log('Orchestrator health:', health);
 
-        updateLiveStatus(`Healthy: ${health.status}`, false);
+        updateLiveStatus(`healthy: ${health.status}`, false);
         alert(`Orchestrator is ${health.status}\n\nDependencies:\n- STT: ${health.dependencies.speech_to_text.healthy ? '✅' : '❌'}\n- Graph: ${health.dependencies.graph_generation.healthy ? '✅' : '❌'}`);
 
       } catch (error) {
         console.error('Health check failed:', error);
-        updateLiveStatus('Health check failed', false);
+        updateLiveStatus('health check failed', false);
         alert(`Failed to connect to orchestrator:\n${error.message}\n\nMake sure:\n1. Orchestrator is running (port 8003)\n2. STT service is running (port 8005)\n3. Graph service is running (port 8002)`);
       }
     }
@@ -421,17 +430,28 @@
      * Start live session
      */
     async function startLiveSession() {
+      console.log('🚀 startLiveSession() called');
       try {
-        const url = document.getElementById('orchestrator-url').value;
-        updateLiveStatus('Starting session...', true);
+        const url = getOrchestratorUrl();
+        console.log('📍 Orchestrator URL:', url);
+        updateLiveStatus('starting session...', true);
+        console.log('✅ Status updated to "starting session..."');
 
         // Clear previous graph/transcript
+        console.log('🧹 Clearing previous graph/transcript...');
         graphRenderer.clear();
         transcriptDisplay.clear();
         updateGraphInfo({ version: 0, nodes: [], edges: [] });
 
+        // Check if SessionManager is available
+        if (typeof SessionManager === 'undefined') {
+          throw new Error('SessionManager is not loaded. Check if session-manager.js is loaded correctly.');
+        }
+        console.log('✅ SessionManager is available');
+
         // Create session manager if not exists
         if (!sessionManager || sessionManager.orchestratorUrl !== url) {
+          console.log('📦 Creating new SessionManager...');
           sessionManager = new SessionManager(url, {
             onUpdate: (data) => {
               console.log('📨 Received SSE update:', data);
@@ -454,15 +474,15 @@
             },
             onError: (error) => {
               console.error('SessionManager error:', error);
-              updateLiveStatus(`Error: ${error.message}`, false);
+              updateLiveStatus(`error: ${error.message}`, false);
             },
             onConnect: () => {
               console.log('✅ Connected to SSE stream');
-              updateLiveStatus('Connected - receiving updates', true);
+              updateLiveStatus('connected - receiving updates', true);
             },
             onDisconnect: () => {
               console.log('Disconnected from SSE stream');
-              updateLiveStatus('Disconnected', false);
+              updateLiveStatus('disconnected', false);
             },
             onStatusChange: (state, message) => {
               // Keep indicator active during 'active', 'stopping', and 'resuming' states
@@ -470,13 +490,21 @@
               updateLiveStatus(message, isActive);
             }
           });
+          console.log('✅ SessionManager created');
+        } else {
+          console.log('✅ Using existing SessionManager');
         }
 
         // Start session
+        console.log('🎬 Calling sessionManager.startSession()...');
         const sessionData = await sessionManager.startSession();
+        console.log('✅ Session started, data received:', sessionData);
 
         // Update UI
-        document.getElementById('session-id-display').textContent = `Session: ${sessionData.session_id}`;
+        const sessionDisplay = document.getElementById('session-id-display');
+        if (sessionDisplay) {
+          sessionDisplay.textContent = `Session: ${sessionData.session_id}`;
+        }
         document.getElementById('start-live-session').disabled = true;
         document.getElementById('pause-live-session').disabled = false;
         document.getElementById('pause-live-session').style.display = 'inline-block';
@@ -489,7 +517,7 @@
 
       } catch (error) {
         console.error('Failed to start live session:', error);
-        updateLiveStatus(`Failed: ${error.message}`, false);
+        updateLiveStatus(`failed: ${error.message}`, false);
         alert(`Failed to start session:\n${error.message}`);
       }
     }
@@ -577,7 +605,10 @@
         console.log('✅ Session stopped:', finalState);
 
         // Update UI
-        document.getElementById('session-id-display').textContent = '';
+        const sessionDisplay = document.getElementById('session-id-display');
+        if (sessionDisplay) {
+          sessionDisplay.textContent = '';
+        }
         document.getElementById('start-live-session').disabled = false;
         document.getElementById('pause-live-session').disabled = true;
         document.getElementById('pause-live-session').style.display = 'inline-block';
@@ -586,7 +617,7 @@
         document.getElementById('stop-live-session').disabled = true;
         document.getElementById('get-session-state').disabled = true;
 
-        updateLiveStatus('Session stopped', false);
+        updateLiveStatus('session stopped', false);
 
         // Show final summary
         if (finalState && finalState.summary) {
@@ -604,7 +635,7 @@
 
       } catch (error) {
         console.error('Failed to stop session:', error);
-        updateLiveStatus(`Error: ${error.message}`, false);
+        updateLiveStatus(`error: ${error.message}`, false);
 
         // Re-enable buttons on error
         document.getElementById('start-live-session').disabled = false;
@@ -642,7 +673,10 @@
       const container = document.getElementById('graph-canvas');
       if (container && graphRenderer) {
         const rect = container.getBoundingClientRect();
-        graphRenderer.resize(rect.width, rect.height);
+        // Resize with minimum dimensions
+        const width = Math.max(rect.width, 1200);
+        const height = Math.max(rect.height, 700);
+        graphRenderer.resize(width, height);
       }
     });
   </script>

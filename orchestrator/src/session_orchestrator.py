@@ -29,7 +29,7 @@ class SessionOrchestrator:
     - Provide unified data stream
     """
 
-    def __init__(self, max_sessions: int = 10, save_directory: str = "./sessions"):
+    def __init__(self, max_sessions: int = 1000, save_directory: str = "./sessions"):
         """
         Initialize the orchestrator.
 
