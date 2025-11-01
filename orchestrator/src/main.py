@@ -312,7 +312,7 @@ def stream_session(session_id: str):
                                     'previous_graph': previous_graph
                                 },
                                 headers={'Content-Type': 'application/json'},
-                                timeout=30
+                                timeout=90  # Increased timeout for LLM calls (especially after resume)
                             )
 
                             if graph_response.status_code == 200:

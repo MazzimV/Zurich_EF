@@ -162,6 +162,11 @@ def stream_transcription(session_id):
                         audio_bytes = audio_buffer.get_chunk()
 
                         if audio_bytes:
+                            # Re-check status before transcribing (prevent race condition)
+                            if session.status != 'active':
+                                app.logger.debug(f"Skipping transcription - session {session_id} no longer active")
+                                continue
+
                             try:
                                 # Transcribe
                                 app.logger.debug(f"Transcribing chunk for session {session_id}")
