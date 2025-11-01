@@ -1,6 +1,6 @@
 # Speech-to-Text Integration Guide
 
-Complete guide for using the speech-to-text component with the rest of the brainstorming graph project.
+Complete guide for using the speech-to-text component with speaker diarization for the brainstorming graph project.
 
 ## Table of Contents
 - [Quick Start](#quick-start)
@@ -114,21 +114,23 @@ GET /sessions/{session_id}/stream
 
 **Response** (Server-Sent Events stream):
 ```
-data: {"chunk_id": 0, "text": "Hello world", "timestamp": "2025-11-01T15:00:08Z", "session_id": "session-abc123", "confidence": null}
+data: {"chunk_id": 0, "text": "A: Hello world B: Hi there", "timestamp": "2025-11-01T15:00:08Z", "session_id": "session-abc123", "confidence": null}
 
-data: {"chunk_id": 1, "text": "This is a test", "timestamp": "2025-11-01T15:00:16Z", "session_id": "session-abc123", "confidence": null}
+data: {"chunk_id": 1, "text": "A: This is a test B: Sounds great", "timestamp": "2025-11-01T15:00:16Z", "session_id": "session-abc123", "confidence": null}
 ```
 
 **Event Format**:
 ```json
 {
   "chunk_id": 0,
-  "text": "transcribed text here",
+  "text": "A: transcribed text here B: another speaker responds",
   "timestamp": "2025-11-01T15:00:08Z",
   "session_id": "session-abc123",
   "confidence": null
 }
 ```
+
+**Note**: Text includes speaker labels (A, B, C, etc.) automatically identified via speaker diarization.
 
 **Timing**:
 - New chunks arrive every ~8-10 seconds
