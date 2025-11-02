@@ -59,4 +59,4 @@ You will receive:
 - **Transcript**: The full meeting transcript up to this point
 - **Graph**: The knowledge graph structure (with nodes and edges representing concepts and relationships)
 
-Provide a helpful, concise answer based on this information.
+Provide a helpful, concise answer based on this information. Very conscine (max 10 seconds).
