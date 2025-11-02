@@ -123,6 +123,151 @@ class GraphGenerator:
         
         return graph
     
+    def expand_node(
+        self,
+        node_id: str,
+        current_graph: Dict,
+        session_id: Optional[str] = None
+    ) -> Dict:
+        """
+        Expand a node by generating 4 subtopic nodes related to it.
+        
+        Args:
+            node_id: ID of the node to expand
+            current_graph: Current graph state
+            session_id: Optional session ID
+            
+        Returns:
+            Updated graph with new subtopic nodes and edges
+        """
+        # Find the target node
+        nodes = current_graph.get('nodes', [])
+        target_node = None
+        for node in nodes:
+            if node.get('id') == node_id:
+                target_node = node
+                break
+        
+        if not target_node:
+            raise ValueError(f"Node with id '{node_id}' not found in graph")
+        
+        # Extract minimal context (only target + neighbors) - huge token savings
+        minimal_context = self._extract_minimal_context(node_id, current_graph)
+        
+        # Use faster model for expansions
+        expansion_model = os.getenv('EXPANSION_MODEL', 'claude-haiku-4-5-20251001')
+        from llm_client import LLMClient
+        fast_client = LLMClient(model=expansion_model)
+        
+        # Ultra-minimal prompt for speed
+        system_prompt = "Generate 4 subtopic nodes. Return JSON: {new_nodes: [...], new_edges: [...]}"
+        
+        # Minimal context JSON (compact, no indent)
+        context_json = json.dumps(minimal_context)  # No indent = 30% smaller
+        target_label = target_node.get('label', '')
+        
+        user_prompt = f"""Expand "{target_label}" with 4 subtopics.
+
+Neighbors: {context_json}
+
+Return JSON only:
+{{"new_nodes": [
+  {{"id": "{node_id}-sub-1", "label": "...", "importance": 0.5, "color": "#3B82F6"}},
+  {{"id": "{node_id}-sub-2", "label": "...", "importance": 0.5, "color": "#8B5CF6"}},
+  {{"id": "{node_id}-sub-3", "label": "...", "importance": 0.5, "color": "#10B981"}},
+  {{"id": "{node_id}-sub-4", "label": "...", "importance": 0.5, "color": "#F59E0B"}}
+], "new_edges": [
+  {{"id": "e1", "source": "{node_id}-sub-1", "target": "{node_id}"}},
+  {{"id": "e2", "source": "{node_id}-sub-2", "target": "{node_id}"}},
+  {{"id": "e3", "source": "{node_id}-sub-3", "target": "{node_id}"}},
+  {{"id": "e4", "source": "{node_id}-sub-4", "target": "{node_id}"}}
+]}}"""
+        
+        # Call LLM with reduced max_tokens (only need ~500 for 4 nodes + 4 edges)
+        try:
+            response = fast_client.generate_graph(system_prompt, user_prompt, max_tokens_override=512)
+            response_data = fast_client.extract_json(response)
+            
+            # Extract only new nodes/edges from response
+            new_nodes = response_data.get('new_nodes', [])
+            new_edges = response_data.get('new_edges', [])
+            
+            if len(new_nodes) != 4 or len(new_edges) != 4:
+                raise ValueError(f"Expected 4 nodes and 4 edges, got {len(new_nodes)} and {len(new_edges)}")
+            
+            # Merge with existing graph (don't return full graph from LLM)
+            now = datetime.utcnow().isoformat() + 'Z'
+            expanded_graph = json.loads(json.dumps(current_graph))  # Deep copy
+            
+            # Add new nodes/edges
+            expanded_graph['nodes'].extend(new_nodes)
+            expanded_graph['edges'].extend(new_edges)
+            
+            # Update metadata
+            expanded_graph['timestamp'] = now
+            expanded_graph['version'] = current_graph.get('version', 0) + 1
+            if session_id:
+                expanded_graph['session_id'] = session_id
+            
+            graph = expanded_graph
+        except Exception as e:
+            raise RuntimeError(f"LLM node expansion failed: {e}") from e
+        
+        # Lightweight validation (only new nodes/edges, skip full graph check for speed)
+        try:
+            for node in new_nodes:
+                if not node.get('id') or not node.get('label') or 'importance' not in node:
+                    raise GraphValidationError(f"Invalid new node: missing required fields")
+            for edge in new_edges:
+                if not edge.get('id') or not edge.get('source') or not edge.get('target'):
+                    raise GraphValidationError(f"Invalid new edge: missing required fields")
+        except GraphValidationError as e:
+            raise GraphValidationError(f"Expansion validation failed: {e}") from e
+        
+        return graph
+    
+    def _extract_minimal_context(self, node_id: str, current_graph: Dict) -> Dict:
+        """
+        Extract minimal context: only target node + immediate neighbors.
+        Reduces input tokens by 80-90%.
+        """
+        nodes = current_graph.get('nodes', [])
+        edges = current_graph.get('edges', [])
+        
+        # Find target node
+        target_node = None
+        for node in nodes:
+            if node.get('id') == node_id:
+                target_node = node
+                break
+        
+        if not target_node:
+            raise ValueError(f"Node {node_id} not found")
+        
+        # Find neighbors (directly connected nodes)
+        connected_ids = {node_id}
+        relevant_edges = []
+        
+        for edge in edges:
+            source = edge.get('source')
+            target = edge.get('target')
+            if source == node_id or target == node_id:
+                relevant_edges.append({'source': source, 'target': target})
+                connected_ids.add(source)
+                connected_ids.add(target)
+        
+        # Extract only relevant nodes (minimal fields)
+        relevant_nodes = []
+        for node in nodes:
+            if node.get('id') in connected_ids:
+                relevant_nodes.append({
+                    'id': node.get('id'),
+                    'label': node.get('label'),
+                    'importance': node.get('importance', 0.5)
+                })
+        
+        return {'nodes': relevant_nodes, 'edges': relevant_edges}
+    
     def _empty_graph(self, session_id: Optional[str] = None, previous_graph: Optional[Dict] = None) -> Dict:
         """Create an empty graph structure"""
         now = datetime.utcnow().isoformat() + 'Z'

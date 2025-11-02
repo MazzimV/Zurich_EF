@@ -31,7 +31,7 @@ class LLMClient:
                                    'claude-opus-4-1-20250805' (most advanced)
         """
         # Use Claude Sonnet 4.5 by default - best balance of intelligence, speed, and cost
-        self.model = model or os.getenv('LLM_MODEL', 'claude-haiku-4-5-20251001')
+        self.model = model or os.getenv('LLM_MODEL', 'claude-sonnet-4-5-20250929')
         
         try:
             from anthropic import Anthropic
@@ -42,26 +42,21 @@ class LLMClient:
         except ImportError:
             raise ImportError("anthropic package not installed. Install with: pip install anthropic")
     
-    def generate_graph(self, system_prompt: str, user_prompt: str, max_tokens_override: Optional[int] = None) -> str:
+    def generate_graph(self, system_prompt: str, user_prompt: str) -> str:
         """
         Call Claude API to generate a graph.
         
         Args:
             system_prompt: System-level instructions
             user_prompt: User input with previous graph and new text
-            max_tokens_override: Optional override for max_tokens (for faster responses)
             
         Returns:
             LLM response text (should be JSON)
         """
         try:
-            # Use override if provided, otherwise use env var or default
-            if max_tokens_override is not None:
-                max_tokens = max_tokens_override
-            else:
-                # For Haiku, use smaller default; for Sonnet, use larger
-                default_tokens = 2048 if 'haiku' in self.model.lower() else 8192
-                max_tokens = int(os.getenv('MAX_TOKENS', str(default_tokens)))
+            # Increase max_tokens for larger graphs (Claude Sonnet 4.5 supports up to 8192)
+            # Use higher limit to handle complex graphs with many nodes/edges
+            max_tokens = int(os.getenv('MAX_TOKENS', '8192'))
             
             message = self.client.messages.create(
                 model=self.model,

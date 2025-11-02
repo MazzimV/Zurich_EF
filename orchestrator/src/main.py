@@ -37,6 +37,7 @@ CORS(app)  # Enable CORS for frontend
 # Configuration
 STT_SERVICE_URL = os.getenv('STT_SERVICE_URL', 'http://localhost:8005')
 GRAPH_SERVICE_URL = os.getenv('GRAPH_SERVICE_URL', 'http://localhost:8002')
+JESSICA_SERVICE_URL = os.getenv('JESSICA_SERVICE_URL', 'http://localhost:8004')
 PORT = int(os.getenv('PORT', 8003))
 DEBUG = os.getenv('DEBUG', 'false').lower() == 'true'
 MAX_SESSIONS = int(os.getenv('MAX_SESSIONS', 10))
@@ -84,6 +85,78 @@ def check_service_health(service_name: str, url: str) -> bool:
     cache['last_check'] = time.time()
 
     return healthy
+
+
+def is_jessica_question(text: str) -> bool:
+    """
+    Detect if the text contains a question for Jessica.
+
+    Args:
+        text: Transcript text to check
+
+    Returns:
+        bool: True if Jessica is mentioned
+    """
+    if not text:
+        return False
+
+    text_lower = text.lower()
+
+    # Jessica trigger keywords
+    jessica_triggers = [
+        "jessica",
+        "@jessica",
+        "hey jessica",
+        "ok jessica",
+        "hi jessica"
+    ]
+
+    return any(trigger in text_lower for trigger in jessica_triggers)
+
+
+def call_jessica(question: str, session_id: str, meeting_transcript: str) -> Optional[dict]:
+    """
+    Call Jessica service to get an answer.
+
+    Args:
+        question: The question for Jessica
+        session_id: Current session ID
+        meeting_transcript: Full meeting transcript for context
+
+    Returns:
+        Jessica response dict or None if failed
+    """
+    try:
+        logger.info(f"Calling Jessica for session {session_id}")
+
+        # Get current graph for context
+        session_state = orchestrator.get_session(session_id)
+        current_graph = session_state.get('graph') if session_state else None
+
+        response = requests.post(
+            f"{JESSICA_SERVICE_URL}/answer-question",
+            json={
+                "question": question,
+                "session_id": session_id,
+                "transcript": meeting_transcript,
+                "graph": current_graph
+            },
+            headers={'Content-Type': 'application/json'},
+            timeout=30  # Alice might take time to generate response
+        )
+
+        if response.status_code == 200:
+            return response.json()
+        else:
+            logger.error(f"Jessica service error: {response.status_code} - {response.text}")
+            return None
+
+    except requests.exceptions.Timeout:
+        logger.error("Jessica service timeout")
+        return None
+    except Exception as e:
+        logger.error(f"Failed to call Jessica: {e}", exc_info=True)
+        return None
 
 
 @app.route('/health', methods=['GET'])
@@ -292,8 +365,35 @@ def stream_session(session_id: str):
                         # Add chunk to session
                         orchestrator.add_transcript_chunk(session_id, chunk_data)
 
-                        # Call graph-generation service
+                        # Get session state for both Jessica and graph generation
                         session_state = orchestrator.get_session(session_id)
+
+                        # Check if Jessica was mentioned (detect questions for Jessica)
+                        chunk_text = chunk_data.get('text', '')
+                        if chunk_text and is_jessica_question(chunk_text):
+                            logger.info(f"Jessica question detected in session {session_id}")
+
+                            # Call Jessica with full meeting transcript
+                            full_transcript = session_state.get('full_transcript', '')
+                            jessica_response = call_jessica(chunk_text, session_id, full_transcript)
+
+                            if jessica_response:
+                                # Emit Jessica response as separate SSE event
+                                jessica_event = {
+                                    'event_type': 'jessica_response',
+                                    'session_id': session_id,
+                                    'question': chunk_text,
+                                    'answer': jessica_response.get('answer', ''),
+                                    'thinking_steps': jessica_response.get('thinking_steps', []),
+                                    'audio_base64': jessica_response.get('audio_base64'),
+                                    'processing_time_ms': jessica_response.get('processing_time_ms'),
+                                    'timestamp': datetime.utcnow().isoformat() + 'Z'
+                                }
+
+                                yield f"data: {json.dumps(jessica_event)}\n\n"
+                                logger.info(f"Jessica response sent for session {session_id}")
+
+                        # Call graph-generation service (continues as normal)
                         previous_graph = session_state.get('graph')
 
                         # Get the transcript that was used to build the current graph
@@ -607,6 +707,103 @@ def delete_session(session_id: str):
         return jsonify({'error': f'Session {session_id} not found'}), 404
 
 
+@app.route('/sessions/<session_id>/expand-node', methods=['POST'])
+def expand_node(session_id: str):
+    """
+    Expand a node by generating 4 subtopic nodes.
+    
+    Only works when session is paused.
+
+    Args:
+        session_id: Session ID
+        Request body:
+        {
+            "node_id": "node-5"
+        }
+
+    Returns:
+        200: Updated graph with expanded node
+        400: Invalid request or session not paused
+        404: Session not found
+        500: Error expanding node
+    """
+    try:
+        # Check session exists
+        session = orchestrator.get_session(session_id)
+        if not session:
+            return jsonify({'error': f'Session {session_id} not found'}), 404
+
+        # Only allow expansion when paused
+        if session['status'] != 'paused':
+            return jsonify({
+                'error': 'Node expansion is only available when session is paused',
+                'current_status': session['status']
+            }), 400
+
+        # Get request data
+        data = request.json or {}
+        node_id = data.get('node_id')
+
+        if not node_id:
+            return jsonify({'error': 'node_id is required'}), 400
+
+        # Get current graph
+        current_graph = session.get('graph')
+        if not current_graph:
+            return jsonify({'error': 'No graph available for this session'}), 400
+
+        # Call graph generation service
+        try:
+            graph_response = requests.post(
+                f"{GRAPH_SERVICE_URL}/expand-node",
+                json={
+                    'session_id': session_id,
+                    'node_id': node_id,
+                    'current_graph': current_graph
+                },
+                headers={'Content-Type': 'application/json'},
+                timeout=90  # Increased timeout for LLM calls
+            )
+
+            if graph_response.status_code != 200:
+                logger.error(
+                    f"Node expansion failed: {graph_response.status_code} - "
+                    f"{graph_response.text}"
+                )
+                return jsonify({
+                    'error': 'Failed to expand node',
+                    'details': graph_response.text
+                }), 500
+
+            new_graph = graph_response.json()
+
+            # Update graph in session
+            orchestrator.update_graph(session_id, new_graph)
+
+            logger.info(f"Expanded node {node_id} for session {session_id}")
+
+            return jsonify({
+                'session_id': session_id,
+                'node_id': node_id,
+                'graph': new_graph
+            }), 200
+
+        except requests.exceptions.Timeout:
+            logger.error("Node expansion timeout")
+            return jsonify({'error': 'Node expansion timeout'}), 504
+
+        except Exception as e:
+            logger.error(f"Node expansion error: {e}", exc_info=True)
+            return jsonify({'error': str(e)}), 500
+
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+
+    except Exception as e:
+        logger.error(f"Error expanding node: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
 def print_banner():
     """Print startup banner."""
     print("\n" + "=" * 60)
@@ -626,6 +823,9 @@ def print_banner():
     print("  GET  /sessions/<id>/stream        - Stream updates (SSE)")
     print("  GET  /sessions/<id>/state         - Get session state")
     print("  POST /sessions/<id>/stop          - Stop session")
+    print("  POST /sessions/<id>/pause         - Pause session")
+    print("  POST /sessions/<id>/resume         - Resume session")
+    print("  POST /sessions/<id>/expand-node   - Expand node (paused only)")
     print("  DEL  /sessions/<id>               - Delete session")
     print("=" * 60)
     print()

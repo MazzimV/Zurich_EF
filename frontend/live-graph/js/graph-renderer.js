@@ -26,6 +26,10 @@ class GraphRenderer {
     this.linkGroup = null;
     this.nodeGroup = null;
 
+    // Node expansion
+    this.isPaused = false;
+    this.onNodeClick = options.onNodeClick || null;
+
     // Initialize
     this._initSVG();
     this._initSimulation();
@@ -229,24 +233,33 @@ class GraphRenderer {
       .append('g')
       .attr('class', 'node')
       .style('opacity', 0)
-      .call(this._addDragBehavior());
+      .style('cursor', d => this.isPaused ? 'pointer' : 'default')
+      .call(this._addDragBehavior())
+      .call(this._addClickBehavior());
 
     // Add circle
     nodeEnter.append('circle')
       .attr('r', d => this._getNodeRadius(d))
       .attr('fill', d => d.color || '#3B82F6');
 
-    // Add label
+    // Add label (centered inside node)
     nodeEnter.append('text')
-      .attr('dx', d => this._getNodeRadius(d) + 5)
-      .attr('dy', '.35em')
-      .attr('font-size', '12px')
-      .attr('fill', '#1E3A8A')
+      .attr('text-anchor', 'middle')  // Center horizontally
+      .attr('dy', '.35em')  // Center vertically
+      .attr('font-size', d => {
+        // Dynamic font size based on node radius (importance)
+        const radius = this._getNodeRadius(d);
+        // Scale font from 8px (small nodes) to 14px (large nodes)
+        return Math.max(8, Math.min(14, radius * 0.3)) + 'px';
+      })
+      .attr('fill', '#FFFFFF')  // White text for visibility on colored backgrounds
+      .attr('font-weight', '500')
+      .style('pointer-events', 'none')  // Allow clicks to pass through to node
       .text(d => d.label);
 
     // Add title for hover tooltip
     nodeEnter.append('title')
-      .text(d => `${d.label}\nType: ${d.type}\nImportance: ${d.importance?.toFixed(2) || 'N/A'}`);
+      .text(d => `${d.label}\nImportance: ${d.importance?.toFixed(2) || 'N/A'}`);
 
     // Transition in new nodes
     nodeEnter
@@ -258,6 +271,10 @@ class GraphRenderer {
     this.nodeSelection = nodeEnter.merge(node);
 
     // Update node properties with transition
+    this.nodeSelection
+      .style('cursor', d => this.isPaused ? 'pointer' : 'default')
+      .call(this._addClickBehavior());
+
     this.nodeSelection.select('circle')
       .transition()
       .duration(500)
@@ -267,11 +284,15 @@ class GraphRenderer {
     this.nodeSelection.select('text')
       .transition()
       .duration(500)
-      .attr('dx', d => this._getNodeRadius(d) + 5)
+      .attr('text-anchor', 'middle')  // Keep centered
+      .attr('font-size', d => {
+        const radius = this._getNodeRadius(d);
+        return Math.max(8, Math.min(14, radius * 0.3)) + 'px';
+      })
       .text(d => d.label);
 
     this.nodeSelection.select('title')
-      .text(d => `${d.label}\nType: ${d.type}\nImportance: ${d.importance?.toFixed(2) || 'N/A'}`);
+      .text(d => `${d.label}\nImportance: ${d.importance?.toFixed(2) || 'N/A'}${this.isPaused ? '\n(Click to expand)' : ''}`);
   }
 
   /**
@@ -333,6 +354,45 @@ class GraphRenderer {
       .on('start', dragStarted)
       .on('drag', dragged)
       .on('end', dragEnded);
+  }
+
+  /**
+   * Add click behavior to nodes (only when paused)
+   */
+  _addClickBehavior() {
+    return selection => {
+      selection.on('click', (event, d) => {
+        // Only handle clicks when paused and callback is set
+        if (this.isPaused && this.onNodeClick) {
+          event.stopPropagation();
+          console.log(`Node clicked: ${d.id} - ${d.label}`);
+          this.onNodeClick(d);
+        }
+      });
+    };
+  }
+
+  /**
+   * Set pause state (enables/disables node clicking)
+   */
+  setPaused(isPaused) {
+    this.isPaused = isPaused;
+    
+    // Update cursor and tooltip on existing nodes
+    if (this.nodeSelection) {
+      this.nodeSelection
+        .style('cursor', d => this.isPaused ? 'pointer' : 'default');
+      
+      this.nodeSelection.select('title')
+        .text(d => `${d.label}\nImportance: ${d.importance?.toFixed(2) || 'N/A'}${this.isPaused ? '\n(Click to expand)' : ''}`);
+    }
+  }
+
+  /**
+   * Set callback for node clicks
+   */
+  setOnNodeClick(callback) {
+    this.onNodeClick = callback;
   }
 
   /**

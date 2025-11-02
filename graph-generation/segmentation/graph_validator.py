@@ -40,7 +40,7 @@ def validate_graph(graph: Dict[str, Any]) -> None:
     # Validate nodes
     node_ids = []
     for i, node in enumerate(nodes):
-        # Check required fields
+        # Check required fields (minimal schema)
         if 'id' not in node:
             errors.append(f"Node {i} missing 'id' field")
         elif not isinstance(node['id'], str):
@@ -51,23 +51,13 @@ def validate_graph(graph: Dict[str, Any]) -> None:
         elif not isinstance(node['label'], str):
             errors.append(f"Node {i} has invalid 'label' (must be string)")
         
-        if 'type' not in node:
-            errors.append(f"Node {i} missing 'type' field")
-        elif node['type'] not in ['concept', 'topic', 'decision', 'question', 'action', 'person']:
-            errors.append(f"Node {i} has invalid 'type': {node['type']}")
-        
-        # Check numeric ranges
-        if 'importance' in node:
-            if not isinstance(node['importance'], (int, float)):
-                errors.append(f"Node {i} has invalid 'importance' (must be number)")
-            elif not (0 <= node['importance'] <= 1):
-                errors.append(f"Node {i} has 'importance' out of range (0-1): {node['importance']}")
-        
-        if 'confidence' in node:
-            if not isinstance(node['confidence'], (int, float)):
-                errors.append(f"Node {i} has invalid 'confidence' (must be number)")
-            elif not (0 <= node['confidence'] <= 1):
-                errors.append(f"Node {i} has 'confidence' out of range (0-1): {node['confidence']}")
+        # Importance is required for minimal schema
+        if 'importance' not in node:
+            errors.append(f"Node {i} missing 'importance' field")
+        elif not isinstance(node['importance'], (int, float)):
+            errors.append(f"Node {i} has invalid 'importance' (must be number)")
+        elif not (0 <= node['importance'] <= 1):
+            errors.append(f"Node {i} has 'importance' out of range (0-1): {node['importance']}")
         
         # Collect node IDs for edge validation
         if 'id' in node:
@@ -78,7 +68,7 @@ def validate_graph(graph: Dict[str, Any]) -> None:
         duplicates = [nid for nid in node_ids if node_ids.count(nid) > 1]
         errors.append(f"Duplicate node IDs found: {set(duplicates)}")
     
-    # Validate edges
+    # Validate edges (minimal schema)
     edge_ids = []
     for i, edge in enumerate(edges):
         # Check required fields
@@ -96,22 +86,6 @@ def validate_graph(graph: Dict[str, Any]) -> None:
             errors.append(f"Edge {i} missing 'target' field")
         elif edge['target'] not in node_ids:
             errors.append(f"Edge {i} references non-existent target node: {edge['target']}")
-        
-        if 'type' in edge and edge['type'] not in ['relates_to', 'causes', 'supports', 'contradicts', 'follows', 'elaborates']:
-            errors.append(f"Edge {i} has invalid 'type': {edge.get('type')}")
-        
-        # Check numeric ranges
-        if 'strength' in edge:
-            if not isinstance(edge['strength'], (int, float)):
-                errors.append(f"Edge {i} has invalid 'strength' (must be number)")
-            elif not (0 <= edge['strength'] <= 1):
-                errors.append(f"Edge {i} has 'strength' out of range (0-1): {edge['strength']}")
-        
-        if 'confidence' in edge:
-            if not isinstance(edge['confidence'], (int, float)):
-                errors.append(f"Edge {i} has invalid 'confidence' (must be number)")
-            elif not (0 <= edge['confidence'] <= 1):
-                errors.append(f"Edge {i} has 'confidence' out of range (0-1): {edge['confidence']}")
         
         # Collect edge IDs
         if 'id' in edge:
